@@ -1,25 +1,70 @@
 #!/usr/bin/python3
-import sys
+
 import os
+import sys
+import signal
+import subprocess
+
 import re
 from pathlib import Path
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox, QProgressBar,
-    QGroupBox, QRadioButton, QButtonGroup
+    QGroupBox, QRadioButton, QButtonGroup, QSizePolicy, QAction
 )
 from PyQt5.QtCore import Qt, QDir, QDirIterator
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QIcon
+
+import classify_my_dataset.about as about
+import classify_my_dataset.modules.configure as configure 
+
+from classify_my_dataset.modules.resources import resource_path
+from classify_my_dataset.modules.wabout    import show_about_window
+
+from classify_my_dataset.desktop import create_desktop_file
+from classify_my_dataset.desktop import create_desktop_directory
+from classify_my_dataset.desktop import create_desktop_menu
+
+# ---------- Path to config file ----------
+CONFIG_PATH = os.path.join( os.path.expanduser("~"),
+                            ".config", 
+                            about.__package__, 
+                            f"config_{about.__program_prepare__}.json" )
+
+DEFAULT_CONTENT={   
+    "toolbar_configure": "Configure",
+    "toolbar_configure_tooltip": "Open the configure Json file of program GUI",
+    "toolbar_about": "About",
+    "toolbar_about_tooltip": "About the program",
+    "toolbar_coffee": "Coffee",
+    "toolbar_coffee_tooltip": "Buy me a coffee (TrucomanX)",
+    "window_width": 800,
+    "window_height": 400
+}
+
+configure.verify_default_config(CONFIG_PATH,default_content=DEFAULT_CONTENT)
+
+CONFIG=configure.load_config(CONFIG_PATH)
+
+# ---------------------------------------
 
 
 class CSVGeneratorWindow(QMainWindow):
     def __init__(self, default_dir: str = ""):
         super().__init__()
-        self.setWindowTitle("Generate Initial CSV Dataset")
-        self.resize(740, 550)
+        
+        self.setWindowTitle(about.__program_prepare__)
+        self.resize(CONFIG["window_width"], CONFIG["window_height"])
+        
+        ## Icon
+        # Get base directory for icons
+        self.icon_path = resource_path("icons", "logo.png")
+        self.setWindowIcon(QIcon(self.icon_path)) 
+        
         self.generated_csv_path = None
         self.default_dir = default_dir
+        self._create_toolbar()
         self.setup_ui()
 
     def setup_ui(self):
@@ -46,7 +91,6 @@ class CSVGeneratorWindow(QMainWindow):
         self.btn_dir = QPushButton("Select Root Directory")
         self.btn_dir.clicked.connect(self.select_root_dir)
         self.line_dir = QLineEdit()
-        self.line_dir.setMinimumHeight(38)
         self.line_dir.setFont(font_big)
         if self.default_dir:
             self.line_dir.setText(self.default_dir)
@@ -61,7 +105,6 @@ class CSVGeneratorWindow(QMainWindow):
         group_filter = QGroupBox("2. File Filter")
         form2 = QFormLayout()
         self.line_filter = QLineEdit("*.png *.jpg *.jpeg *.bmp")
-        self.line_filter.setMinimumHeight(38)
         self.line_filter.setFont(font_big)
         form2.addRow("Extensions (space separated):", self.line_filter)
         group_filter.setLayout(form2)
@@ -73,7 +116,6 @@ class CSVGeneratorWindow(QMainWindow):
         self.btn_output = QPushButton("Select / Create CSV")
         self.btn_output.clicked.connect(self.select_output_csv)
         self.line_output = QLineEdit()
-        self.line_output.setMinimumHeight(38)
         self.line_output.setFont(font_big)
         self.line_output.setPlaceholderText("/path/to/my_dataset.csv")
 
@@ -88,8 +130,6 @@ class CSVGeneratorWindow(QMainWindow):
         form4 = QFormLayout()
         self.line_col_filepath = QLineEdit("filepath")
         self.line_col_label = QLineEdit("label")
-        self.line_col_filepath.setMinimumHeight(36)
-        self.line_col_label.setMinimumHeight(36)
         form4.addRow("Filepath Column:", self.line_col_filepath)
         form4.addRow("Label Column:", self.line_col_label)
         group_cols.setLayout(form4)
@@ -139,7 +179,83 @@ class CSVGeneratorWindow(QMainWindow):
         layout.addLayout(btn_layout)
 
     # ==================== MÉTODOS ====================
+    def _create_toolbar(self):
+        self.toolbar = self.addToolBar("Main")
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
 
+        # Adicionar o espaçador
+        self.toolbar_spacer = QWidget()
+        self.toolbar_spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.toolbar.addWidget(self.toolbar_spacer)
+        
+        #
+        self.configure_action = QAction(QIcon.fromTheme("document-properties"), 
+                                        CONFIG["toolbar_configure"], 
+                                        self)
+        self.configure_action.setToolTip(CONFIG["toolbar_configure_tooltip"])
+        self.configure_action.triggered.connect(self.open_configure_editor)
+        self.toolbar.addAction(self.configure_action)
+        
+        #
+        self.about_action = QAction(QIcon.fromTheme("help-about"), 
+                                    CONFIG["toolbar_about"], 
+                                    self)
+        self.about_action.setToolTip(CONFIG["toolbar_about_tooltip"])
+        self.about_action.triggered.connect(self.open_about)
+        self.toolbar.addAction(self.about_action)
+        
+        # Coffee
+        self.coffee_action = QAction(   QIcon.fromTheme("emblem-favorite"), 
+                                        CONFIG["toolbar_coffee"], 
+                                        self)
+        self.coffee_action.setToolTip(CONFIG["toolbar_coffee_tooltip"])
+        self.coffee_action.triggered.connect(self.on_coffee_action_click)
+        self.toolbar.addAction(self.coffee_action)
+
+        # Conectar ao sinal de mudança de orientação
+        self.toolbar.orientationChanged.connect(self.on_update_spacer_policy)
+        self.on_update_spacer_policy()
+
+    def on_update_spacer_policy(self):
+        """Atualiza a política do espaçador baseado na orientação da toolbar"""
+        if self.toolbar.orientation() == Qt.Horizontal:
+            # Horizontal: expande na largura
+            self.toolbar_spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        else:
+            # Vertical: expande na altura
+            self.toolbar_spacer.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+
+    def _open_file_in_text_editor(self, filepath):
+        if os.name == 'nt':  # Windows
+            os.startfile(filepath)
+        elif os.name == 'posix':  # Linux/macOS
+            subprocess.run(['xdg-open', filepath])
+    
+    def open_url_usage_editor(self):
+        QDesktopServices.openUrl(QUrl(CONFIG_GPT["usage"]))
+        
+    def open_configure_editor(self):
+        self._open_file_in_text_editor(CONFIG_PATH)
+
+    def open_about(self):
+        data={
+            "version": about.__version__,
+            "package": about.__package__,
+            "program_name": about.__program_prepare__,
+            "author": about.__author__,
+            "email": about.__email__,
+            "description": about.__description__,
+            "url_source": about.__url_source__,
+            "url_doc": about.__url_doc__,
+            "url_funding": about.__url_funding__,
+            "url_bugs": about.__url_bugs__
+        }
+        show_about_window(data,self.icon_path)
+
+    def on_coffee_action_click(self):
+        QDesktopServices.openUrl(QUrl("https://ko-fi.com/trucomanx"))
+        
+        
     def select_root_dir(self):
         dir_path = QFileDialog.getExistingDirectory(self, "Select Root Directory", self.line_dir.text())
         if dir_path:
@@ -249,12 +365,48 @@ def natural_sort_key(s):
             for text in re.split('([0-9]+)', str(s))]
 
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
+def main():
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+       
+    '''
+    extras="" # "MimeType=text/vnd.graphviz;"
+    
+    create_desktop_directory()    
+    create_desktop_menu()
+    create_desktop_file(os.path.join("~",".local","share","applications"), 
+                        program_name=about.__program_name__,
+                        extras=extras)
+    
+    for n in range(len(sys.argv)):
+        if sys.argv[n] == "--autostart":
+            create_desktop_directory(overwrite = True)
+            create_desktop_menu(overwrite = True)
+            create_desktop_file(os.path.join("~",".config","autostart"), 
+                                overwrite=True, 
+                                program_name=about.__program_name__,
+                                extras=extras)
+            return
+        if sys.argv[n] == "--applications":
+            create_desktop_directory(overwrite = True)
+            create_desktop_menu(overwrite = True)
+            create_desktop_file(os.path.join("~",".local","share","applications"), 
+                                overwrite=True, 
+                                program_name=about.__program_name__,
+                                extras=extras)
+            return
+    '''
     default_dir = sys.argv[1] if len(sys.argv) > 1 else ""
+
+    
+    app = QApplication(sys.argv)
+    app.setApplicationName(about.__program_name__) 
+    
     window = CSVGeneratorWindow(default_dir)
     window.show()
-    app.exec_()
-
-    if window.generated_csv_path:
-        print(f"CSV_GENERATED:{window.generated_csv_path}")
+    sys.exit(app.exec_())
+    
+    #if window.generated_csv_path:
+    #    print(f"CSV_GENERATED:{window.generated_csv_path}")
+    
+if __name__ == "__main__":
+    main()
