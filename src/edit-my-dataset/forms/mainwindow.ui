@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Edit My Dataset</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -29,10 +29,6 @@
           </property>
           <property name="text">
            <string>Save</string>
-          </property>
-          <property name="icon">
-           <iconset resource="../edit-my-dataset.qrc">
-            <normaloff>:/myimages/share/edit-my-dataset/icons/document-save-all.png</normaloff>:/myimages/share/edit-my-dataset/icons/document-save-all.png</iconset>
           </property>
           <property name="iconSize">
            <size>
@@ -52,10 +48,6 @@
           </property>
           <property name="text">
            <string>Previous</string>
-          </property>
-          <property name="icon">
-           <iconset resource="../edit-my-dataset.qrc">
-            <normaloff>:/myimages/share/edit-my-dataset/icons/go-previous.png</normaloff>:/myimages/share/edit-my-dataset/icons/go-previous.png</iconset>
           </property>
           <property name="iconSize">
            <size>
@@ -78,10 +70,6 @@
           </property>
           <property name="text">
            <string>Next</string>
-          </property>
-          <property name="icon">
-           <iconset resource="../edit-my-dataset.qrc">
-            <normaloff>:/myimages/share/edit-my-dataset/icons/go-next.png</normaloff>:/myimages/share/edit-my-dataset/icons/go-next.png</iconset>
           </property>
           <property name="iconSize">
            <size>
@@ -112,10 +100,6 @@
           <property name="text">
            <string>Exit</string>
           </property>
-          <property name="icon">
-           <iconset resource="../edit-my-dataset.qrc">
-            <normaloff>:/myimages/share/edit-my-dataset/icons/exit.png</normaloff>:/myimages/share/edit-my-dataset/icons/exit.png</iconset>
-          </property>
           <property name="iconSize">
            <size>
             <width>64</width>
@@ -137,10 +121,6 @@
           </property>
           <property name="text">
            <string>Root directory:</string>
-          </property>
-          <property name="icon">
-           <iconset resource="../edit-my-dataset.qrc">
-            <normaloff>:/myimages/share/edit-my-dataset/icons/default-folder-saved-search.png</normaloff>:/myimages/share/edit-my-dataset/icons/default-folder-saved-search.png</iconset>
           </property>
           <property name="iconSize">
            <size>
@@ -171,21 +151,6 @@
         </item>
         <item row="2" column="0">
          <widget class="QPushButton" name="pushButton_Csv">
-          <property name="enabled">
-           <bool>true</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>0</height>
-           </size>
-          </property>
           <property name="font">
            <font>
             <pointsize>15</pointsize>
@@ -193,10 +158,6 @@
           </property>
           <property name="text">
            <string>Input csv file:</string>
-          </property>
-          <property name="icon">
-           <iconset resource="../edit-my-dataset.qrc">
-            <normaloff>:/myimages/share/edit-my-dataset/icons/notebook.png</normaloff>:/myimages/share/edit-my-dataset/icons/notebook.png</iconset>
           </property>
           <property name="iconSize">
            <size>
@@ -243,10 +204,6 @@
         <property name="text">
          <string>Read data and start</string>
         </property>
-        <property name="icon">
-         <iconset resource="../edit-my-dataset.qrc">
-          <normaloff>:/myimages/share/edit-my-dataset/icons/checkbox.png</normaloff>:/myimages/share/edit-my-dataset/icons/checkbox.png</iconset>
-        </property>
         <property name="iconSize">
          <size>
           <width>32</width>
@@ -292,11 +249,7 @@
          </widget>
         </item>
         <item row="1" column="3">
-         <widget class="QSpinBox" name="spinBox_ID">
-          <property name="readOnly">
-           <bool>false</bool>
-          </property>
-         </widget>
+         <widget class="QSpinBox" name="spinBox_ID"/>
         </item>
         <item row="1" column="2">
          <widget class="QLabel" name="label">
@@ -409,8 +362,6 @@
    </property>
   </action>
  </widget>
- <resources>
-  <include location="../edit-my-dataset.qrc"/>
- </resources>
+ <resources/>
  <connections/>
 </ui>

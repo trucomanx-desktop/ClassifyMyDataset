@@ -12,12 +12,12 @@ from PyQt5.QtWidgets import (
     QPushButton, QLabel, QHBoxLayout
 )
 from PyQt5.QtGui import QPixmap, QIcon, QKeySequence
-from PyQt5.QtCore import Qt, QDir, QDirIterator
+from PyQt5.QtCore import Qt, QDir, QDirIterator, QSize
 from PyQt5 import uic
 
 
 def natural_sort_key(s):
-    """Natural sorting for filenames (numbers in correct order)"""
+    """Natural sorting for filenames"""
     return [int(text) if text.isdigit() else text.lower()
             for text in re.split('([0-9]+)', str(s))]
 
@@ -28,9 +28,13 @@ class MainWindow(QMainWindow):
         uic.loadUi("forms/mainwindow.ui", self)
         self.setWindowTitle("Edit My Dataset")
 
+        # Configuração de caminhos
+        self.script_dir = Path(__file__).parent
+        self.icons_dir = self.script_dir / "icons"
+
         # Data structures
-        self.Map = OrderedDict()           # filename -> label (preserves order)
-        self.LabelDict = {}                # label -> metadata (icon, etc.)
+        self.Map = OrderedDict()
+        self.LabelDict = {}
         self.validLabels = set()
         self.ButtonPtr = []
         self.Directory = QDir()
@@ -45,6 +49,7 @@ class MainWindow(QMainWindow):
         self.strSeparator = ","
 
         self.setup_ui()
+        self.load_toolbar_icons()      # ← Novo
         self.load_init_data()
 
     def setup_ui(self):
@@ -69,8 +74,36 @@ class MainWindow(QMainWindow):
         self.lineEdit_Type.setLayout(layout)
         self.lineEdit_Type.setTextMargins(self.TypeIconSize + 8, 0, 0, 0)
 
+    def load_toolbar_icons(self):
+        """Carrega ícones da barra de ferramentas e botões"""
+        icon_map = {
+            self.toolButton_Save: "document-save-all.png",
+            self.toolButton_Previous: "go-previous.png",
+            self.toolButton_Next: "go-next.png",
+            self.toolButton_Exit: "exit.png",
+            self.pushButton_Directory: "default-folder-saved-search.png",
+            self.pushButton_Csv: "notebook.png",
+            self.pushButton_start: "checkbox.png",
+        }
+
+        icon_size = QSize(48, 48)
+
+        for widget, icon_file in icon_map.items():
+            icon_full_path = self.icons_dir / icon_file
+            if icon_full_path.exists():
+                widget.setIcon(QIcon(str(icon_full_path)))
+                widget.setIconSize(icon_size)
+                print(f"✓ Ícone carregado: {icon_file}")
+            else:
+                print(f"⚠️ Ícone não encontrado: {icon_file}")
+
+        # Ícone da janela (opcional)
+        app_icon_path = self.icons_dir / "edit-my-dataset.png"
+        if app_icon_path.exists():
+            self.setWindowIcon(QIcon(str(app_icon_path)))
+
     def load_init_data(self):
-        """Load buttons and shortcuts from JSON"""
+        """Load buttons configuration from JSON"""
         home = Path.home()
         init_file = home / "edit-my-dataset.json"
 
@@ -154,8 +187,10 @@ class MainWindow(QMainWindow):
     # ====================== SLOTS ======================
 
     def on_pushButton_Directory_clicked(self):
+        print("ok1")
         directory = QFileDialog.getExistingDirectory(self, "Select Root Directory")
         if directory:
+            print("ok2")
             self.lineEdit_Directory.setText(directory)
 
     def on_pushButton_Csv_clicked(self):
@@ -245,7 +280,7 @@ class MainWindow(QMainWindow):
 
         if invalid:
             QMessageBox.warning(self, "Invalid Labels",
-                                "Some labels are not valid:\n\n" + "\n".join(invalid[:10]))
+                                "Some labels are not valid:\n\n" + "\n".join(invalid[:15]))
 
         # Enable controls
         for btn in self.ButtonPtr:
@@ -261,8 +296,8 @@ class MainWindow(QMainWindow):
     def read_csv_file(self, csv_path):
         """Read CSV maintaining natural order"""
         mapping = OrderedDict()
-        if not os.path.exists(csv_path):
-            return mapping
+        #if not os.path.exists(csv_path):
+        #    return mapping
 
         try:
             with open(csv_path, "r", encoding="utf-8") as f:
@@ -318,7 +353,7 @@ class MainWindow(QMainWindow):
         self.lineEdit_Type.setText(label)
         self.progressBar.setValue(self.CurrentImg)
 
-        # Show label icon
+        # Icon do label
         if label and label in self.LabelDict:
             icon_path = self.LabelDict[label]["button_image"]
             if icon_path and os.path.exists(icon_path):
