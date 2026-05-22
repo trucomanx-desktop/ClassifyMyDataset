@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-
 import sys
 import os
 import json
@@ -8,17 +7,16 @@ from collections import OrderedDict
 import re
 
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QFileDialog, QMessageBox, QGraphicsScene,
-    QPushButton, QLabel, QHBoxLayout, QVBoxLayout, QFormLayout, QGridLayout,
-    QToolButton, QLineEdit, QSpinBox, QCheckBox, QProgressBar, QGraphicsView,
-    QMenuBar, QMenu, QAction, QSizePolicy, QSpacerItem, QWidget
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
+    QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox, QGraphicsScene,
+    QGraphicsView, QListWidget, QListWidgetItem, QToolBar, QAction, QProgressBar,
+    QFrame
 )
-from PyQt5.QtGui import QPixmap, QIcon, QKeySequence, QFont
+from PyQt5.QtGui import QPixmap, QIcon, QFont
 from PyQt5.QtCore import Qt, QDir, QSize
 
 
 def natural_sort_key(s):
-    """Natural sorting for filenames"""
     return [int(text) if text.isdigit() else text.lower()
             for text in re.split('([0-9]+)', str(s))]
 
@@ -26,210 +24,202 @@ def natural_sort_key(s):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Edit My Dataset")
-        self.resize(800, 600)
+        self.setWindowTitle("Classify My Dataset")
+        self.resize(1200, 700)
 
-        # Configuração de caminhos
-        self.script_dir = Path(__file__).parent
-        self.icons_dir = self.script_dir / "icons"
-
-        # Data structures
-        self.Map = OrderedDict()
-        self.LabelDict = {}
+        # Data
+        self.Map = OrderedDict()           # filename -> label
         self.validLabels = set()
         self.ButtonPtr = []
         self.Directory = QDir()
-        self.CurrentImg = 0
-        self.TotalImg = 0
+        self.CurrentImg = None
         self.scene = None
-        self.TypeIconSize = 48
-        self.lineEdit_Type = None
-
-        self.strFilename = "filepath"
-        self.strLabel = "label"
-        self.strSeparator = ","
 
         self.setup_ui()
-        self.load_toolbar_icons()
-        self.load_init_data()
+        self.load_icons()
 
     def setup_ui(self):
-        """Cria toda a interface manualmente"""
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+        # ==================== TOOLBAR ====================
+        toolbar = QToolBar()
+        toolbar.setIconSize(QSize(48, 48))
+        self.addToolBar(toolbar)
 
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(8, 8, 8, 8)
-        main_layout.setSpacing(10)
+        self.action_save = QAction("Save", self)
+        self.action_save.setShortcut("Ctrl+S")
+        self.action_save.triggered.connect(self.save_csv)
+        toolbar.addAction(self.action_save)
 
-        # ==================== TOP TOOLBAR ====================
-        top_layout = QHBoxLayout()
-        top_layout.setSpacing(6)
+        toolbar.addSeparator()
 
-        self.toolButton_Save = QToolButton()
-        self.toolButton_Save.setText("Save")
-        self.toolButton_Save.setEnabled(False)
-        self.toolButton_Save.setIconSize(QSize(64, 64))
-        self.toolButton_Save.clicked.connect(self.on_toolButton_Save_clicked)
+        self.action_exit = QAction("Exit", self)
+        self.action_exit.triggered.connect(self.close)
+        toolbar.addAction(self.action_exit)
 
-        self.toolButton_Previous = QToolButton()
-        self.toolButton_Previous.setText("Previous")
-        self.toolButton_Previous.setEnabled(False)
-        self.toolButton_Previous.setIconSize(QSize(64, 64))
-        self.toolButton_Previous.setShortcut(QKeySequence("Left"))
-        self.toolButton_Previous.clicked.connect(self.on_toolButton_Previous_clicked)
+        # ==================== MAIN WIDGET ====================
+        central = QWidget()
+        self.setCentralWidget(central)
+        main_layout = QVBoxLayout(central)
+        main_layout.setSpacing(8)
 
-        self.toolButton_Next = QToolButton()
-        self.toolButton_Next.setText("Next")
-        self.toolButton_Next.setEnabled(False)
-        self.toolButton_Next.setIconSize(QSize(64, 64))
-        self.toolButton_Next.setShortcut(QKeySequence("Right"))
-        self.toolButton_Next.clicked.connect(self.on_toolButton_Next_clicked)
+        # === CONFIG SECTION ===
+        config_layout = QHBoxLayout()
+        config_layout.setSpacing(15)
 
-        self.toolButton_Exit = QToolButton()
-        self.toolButton_Exit.setText("Exit")
-        self.toolButton_Exit.setIconSize(QSize(64, 64))
-        self.toolButton_Exit.clicked.connect(self.close)
+        # Root Directory
+        lbl_dir = QLabel("Root Directory:")
+        self.line_dir = QLineEdit()
+        btn_dir = QPushButton("...")
+        btn_dir.setMaximumWidth(40)
+        btn_dir.clicked.connect(self.select_root_dir)
 
-        top_layout.addWidget(self.toolButton_Save)
-        top_layout.addWidget(self.toolButton_Previous)
-        top_layout.addWidget(self.toolButton_Next)
-        top_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
-        top_layout.addWidget(self.toolButton_Exit)
+        # Input CSV
+        lbl_csv = QLabel("Input CSV:")
+        self.line_csv = QLineEdit()
+        btn_csv = QPushButton("...")
+        btn_csv.setMaximumWidth(40)
+        btn_csv.clicked.connect(self.select_csv)
 
-        main_layout.addLayout(top_layout)
+        # Config JSON
+        lbl_json = QLabel("Config JSON:")
+        self.line_json = QLineEdit()
+        btn_json = QPushButton("...")
+        btn_json.setMaximumWidth(40)
+        btn_json.clicked.connect(self.select_json)
 
-        # ==================== FORM LAYOUT ====================
-        form_layout = QFormLayout()
-        form_layout.setLabelAlignment(Qt.AlignRight)
-        form_layout.setSpacing(8)
+        config_layout.addWidget(lbl_dir)
+        config_layout.addWidget(self.line_dir, 2)
+        config_layout.addWidget(btn_dir)
 
-        self.pushButton_Directory = QPushButton("Root directory:")
-        self.pushButton_Directory.clicked.connect(self.on_pushButton_Directory_clicked)
+        config_layout.addWidget(lbl_csv)
+        config_layout.addWidget(self.line_csv, 2)
+        config_layout.addWidget(btn_csv)
 
-        self.lineEdit_Directory = QLineEdit()
-        self.lineEdit_Directory.setMinimumHeight(38)
+        config_layout.addWidget(lbl_json)
+        config_layout.addWidget(self.line_json, 2)
+        config_layout.addWidget(btn_json)
 
-        h_dir = QHBoxLayout()
-        h_dir.addWidget(self.lineEdit_Directory)
-        form_layout.addRow(self.pushButton_Directory, h_dir)
+        main_layout.addLayout(config_layout)
 
-        self.pushButton_Csv = QPushButton("Input csv file:")
-        self.pushButton_Csv.clicked.connect(self.on_pushButton_Csv_clicked)
+        # Start Button
+        self.btn_start = QPushButton("Load Dataset and Start")
+        self.btn_start.setFont(QFont("", 12, QFont.Bold))
+        self.btn_start.clicked.connect(self.start_classification)
+        main_layout.addWidget(self.btn_start)
 
-        self.lineEdit_Csv = QLineEdit()
-        self.lineEdit_Csv.setMinimumHeight(38)
+        # ==================== MAIN AREA ====================
+        content_splitter = QSplitter(Qt.Horizontal)
+        main_layout.addWidget(content_splitter, 1)
 
-        form_layout.addRow(self.pushButton_Csv, self.lineEdit_Csv)
+        # LEFT: Two ListWidgets
+        left_panel = QVBoxLayout()
+        left_widget = QWidget()
+        left_widget.setLayout(left_panel)
 
-        self.checkBox_hasHeader = QCheckBox("Csv has header")
-        self.checkBox_hasHeader.setChecked(True)
-        form_layout.addRow(self.checkBox_hasHeader)
+        self.list_unlabeled = QListWidget()
+        self.list_labeled = QListWidget()
 
-        main_layout.addLayout(form_layout)
+        lbl_un = QLabel("Without Label")
+        lbl_un.setAlignment(Qt.AlignCenter)
+        lbl_la = QLabel("With Label")
+        lbl_la.setAlignment(Qt.AlignCenter)
 
-        # ==================== START BUTTON ====================
-        self.pushButton_start = QPushButton("Read data and start")
-        #self.pushButton_start.setFont(QFont("", 15))
-        self.pushButton_start.clicked.connect(self.on_pushButton_start_clicked)
-        main_layout.addWidget(self.pushButton_start)
+        left_panel.addWidget(lbl_un)
+        left_panel.addWidget(self.list_unlabeled, 1)
+        left_panel.addWidget(lbl_la)
+        left_panel.addWidget(self.list_labeled, 1)
 
-        # ==================== IMAGE + LABEL BUTTONS ====================
-        image_layout = QHBoxLayout()
-        image_layout.setSpacing(10)
+        left_container = QWidget()
+        left_container.setLayout(left_panel)
+        content_splitter.addWidget(left_container)
 
+        # CENTER: Image
         self.graphicsView = QGraphicsView()
-        self.graphicsView.setMinimumHeight(300)
-        image_layout.addWidget(self.graphicsView, 3)
+        self.graphicsView.setMinimumWidth(400)
+        content_splitter.addWidget(self.graphicsView)
 
-        self.verticalLayout_buttons = QVBoxLayout()
-        image_layout.addLayout(self.verticalLayout_buttons, 1)
+        # RIGHT: Classification Buttons
+        self.right_widget = QWidget()
+        self.right_layout = QVBoxLayout(self.right_widget)
+        self.right_layout.addStretch()
+        content_splitter.addWidget(self.right_widget)
 
-        main_layout.addLayout(image_layout, 1)
+        content_splitter.setSizes([250, 600, 250])
 
-        # ==================== BOTTOM INFO ====================
-        bottom_grid = QGridLayout()
-        bottom_grid.setSpacing(8)
-
-        label_filename = QLabel("Filename:")
-        self.lineEdit_filename = QLineEdit()
-        self.lineEdit_filename.setReadOnly(True)
-
-        label_id = QLabel("ID of image:")
-        self.spinBox_ID = QSpinBox()
-        self.spinBox_ID.editingFinished.connect(self.on_spinBox_ID_editingFinished)
-
-        label_type = QLabel("Type:")
-        self.lineEdit_Type = QLineEdit()
-        self.lineEdit_Type.setReadOnly(True)
-        self.lineEdit_Type.setMaximumWidth(250)
-
-        bottom_grid.addWidget(label_type, 0, 0, 2, 1)
-        bottom_grid.addWidget(self.lineEdit_Type, 0, 1, 2, 1)
-        bottom_grid.addWidget(label_filename, 0, 2)
-        bottom_grid.addWidget(self.lineEdit_filename, 0, 3)
-        bottom_grid.addWidget(label_id, 1, 2)
-        bottom_grid.addWidget(self.spinBox_ID, 1, 3)
-
-        main_layout.addLayout(bottom_grid)
-
-        # ==================== PROGRESS BAR ====================
+        # Progress Bar
         self.progressBar = QProgressBar()
-        self.progressBar.setMinimum(0)
-        self.progressBar.setMaximum(100)
-        self.progressBar.setValue(0)
+        self.progressBar.setFormat("Classified: %v / %m")
         main_layout.addWidget(self.progressBar)
 
-        # ==================== MENU ====================
-        menubar = QMenuBar()
-        self.setMenuBar(menubar)
-        menu_help = QMenu("Help", self)
-        action_about = QAction("About", self)
-        action_about.triggered.connect(self.on_actionAbout_triggered)
-        menu_help.addAction(action_about)
-        menubar.addMenu(menu_help)
+        # Connections
+        self.list_unlabeled.itemClicked.connect(self.on_list_item_clicked)
+        self.list_labeled.itemClicked.connect(self.on_list_item_clicked)
 
-    def load_toolbar_icons(self):
-        """Carrega ícones da barra de ferramentas"""
+    def load_icons(self):
+        script_dir = Path(__file__).parent
+        icons_dir = script_dir / "icons"
+
         icon_map = {
-            self.toolButton_Save: "document-save-all.png",
-            self.toolButton_Previous: "go-previous.png",
-            self.toolButton_Next: "go-next.png",
-            self.toolButton_Exit: "exit.png",
-            self.pushButton_Directory: "default-folder-saved-search.png",
-            self.pushButton_Csv: "notebook.png",
-            self.pushButton_start: "checkbox.png",
+            self.action_save: "document-save-all.png",
+            self.action_exit: "exit.png",
         }
 
-        #icon_size = QSize(48, 48)
+        for action, icon_file in icon_map.items():
+            path = icons_dir / icon_file
+            if path.exists():
+                action.setIcon(QIcon(str(path)))
 
-        for widget, icon_file in icon_map.items():
-            icon_full_path = self.icons_dir / icon_file
-            if icon_full_path.exists():
-                widget.setIcon(QIcon(str(icon_full_path)))
-                #widget.setIconSize(icon_size)
-            else:
-                print(f"⚠️ Ícone não encontrado: {icon_file}")
+    # ====================== SELECTORS ======================
+    def select_root_dir(self):
+        path = QFileDialog.getExistingDirectory(self, "Select Root Directory")
+        if path:
+            self.line_dir.setText(path)
 
-        # Ícone da janela
-        app_icon = self.icons_dir / "edit-my-dataset.png"
-        if app_icon.exists():
-            self.setWindowIcon(QIcon(str(app_icon)))
+    def select_csv(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Select CSV File", "", "CSV (*.csv)")
+        if path:
+            self.line_csv.setText(path)
 
-    # ==================== RESTO DO CÓDIGO (igual ao anterior) ====================
+    def select_json(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Select Config JSON", "", "JSON (*.json)")
+        if path:
+            self.line_json.setText(path)
 
-    def load_init_data(self):
-        home = Path.home()
-        init_file = home / "edit-my-dataset.json"
+    # ====================== START ======================
+    def start_classification(self):
+        csv_path = self.line_csv.text().strip()
+        json_path = self.line_json.text().strip()
+        root_dir = self.line_dir.text().strip()
 
-        if not init_file.exists():
-            self.create_default_file(init_file)
+        if not csv_path or not os.path.exists(csv_path):
+            QMessageBox.warning(self, "Error", "Please select a valid CSV file!")
+            return
+        if not json_path or not os.path.exists(json_path):
+            QMessageBox.warning(self, "Error", "Please select a valid Config JSON file!")
+            return
+        if not root_dir or not os.path.exists(root_dir):
+            QMessageBox.warning(self, "Error", "Please select Root Directory!")
+            return
+
+        self.Directory = QDir(root_dir)
+        self.load_config(json_path)
+        self.load_csv(csv_path)
+
+        self.populate_lists()
+        self.progressBar.setMaximum(len(self.Map))
+        self.progressBar.setValue(sum(1 for v in self.Map.values() if v))
+
+        if self.Map:
+            self.show_first_image()
+
+    def load_config(self, json_path):
+        self.validLabels.clear()
+        for btn in self.ButtonPtr:
+            btn.setParent(None)
+        self.ButtonPtr.clear()
 
         try:
-            with open(init_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            buttons = data.get("buttons", [])
+            with open(json_path, "r", encoding="utf-8") as f:
+                buttons = json.load(f)
 
             for btn_data in buttons:
                 label = btn_data.get("button_label", "").strip()
@@ -238,226 +228,62 @@ class MainWindow(QMainWindow):
 
                 self.validLabels.add(label)
 
-                image_path = btn_data.get("button_image", "")
-                width = btn_data.get("button_image_width", 0)
-                shortcut = btn_data.get("short_cut", "").strip()
-
-                if image_path and not os.path.isabs(image_path):
-                    image_path = str(home / image_path)
-
                 button = QPushButton(label, self)
-                button.setEnabled(False)
-
-                if image_path and os.path.exists(image_path):
-                    pixmap = QPixmap(image_path)
-                    button.setIcon(QIcon(pixmap))
-                    if width > 0:
-                        button.setIconSize(pixmap.rect().size().scaled(width, 999, Qt.KeepAspectRatio))
-
-                if shortcut:
-                    button.setShortcut(QKeySequence(shortcut))
-
+                button.setMinimumHeight(60)
                 button.clicked.connect(lambda _, lbl=label: self.assign_label(lbl))
-
-                self.verticalLayout_buttons.addWidget(button)
+                self.right_layout.addWidget(button)
                 self.ButtonPtr.append(button)
 
-                self.LabelDict[label] = {
-                    "button_image": image_path,
-                    "button_image_width": width
-                }
-
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load configuration:\n{e}")
+            QMessageBox.critical(self, "Error", f"Failed to load JSON config:\n{e}")
 
-    def create_default_file(self, filepath):
-        default = {
-            "buttons": [
-                {"button_label": "negative", "short_cut": "1"},
-                {"button_label": "neutro", "short_cut": "2"},
-                {"button_label": "pain", "short_cut": "3"},
-                {"button_label": "positive", "short_cut": "4"},
-                {"button_label": "unknown", "short_cut": "5"}
-            ]
-        }
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(default, f, indent=4, ensure_ascii=False)
-
-    def assign_label(self, label: str):
-        if not self.Map:
-            return
-        filename = list(self.Map.keys())[self.CurrentImg]
-        self.Map[filename] = label
-        self.statusBar().showMessage(f"Last image labeled: {label}", 4000)
-        self.on_toolButton_Next_clicked()
-
-    # ====================== SLOTS ======================
-
-    def on_pushButton_Directory_clicked(self):
-        directory = QFileDialog.getExistingDirectory(self, "Select Root Directory")
-        if directory:
-            self.lineEdit_Directory.setText(directory)
-
-    def on_pushButton_Csv_clicked(self):
-        csvfile, _ = QFileDialog.getOpenFileName(
-            self, "Open CSV File", "", "CSV Files (*.csv *.CSV)"
-        )
-        if csvfile:
-            self.lineEdit_Csv.setText(csvfile)
-
-    def on_spinBox_ID_editingFinished(self):
-        val = self.spinBox_ID.value()
-        if 0 <= val < self.TotalImg and val != self.CurrentImg:
-            self.CurrentImg = val
-            self.change_current_image()
-
-    def on_toolButton_Next_clicked(self):
-        if self.TotalImg == 0:
-            return
-        self.CurrentImg = (self.CurrentImg + 1) % self.TotalImg
-        self.change_current_image()
-
-    def on_toolButton_Previous_clicked(self):
-        if self.TotalImg == 0:
-            return
-        self.CurrentImg = (self.CurrentImg - 1) % self.TotalImg
-        self.change_current_image()
-
-    def on_toolButton_Save_clicked(self):
-        csv_path = self.lineEdit_Csv.text().strip()
-        if not csv_path:
-            QMessageBox.warning(self, "Warning", "No CSV file selected!")
-            return
-
-        has_header = self.checkBox_hasHeader.isChecked()
-
-        try:
-            with open(csv_path, "w", encoding="utf-8", newline="") as f:
-                if has_header:
-                    f.write(f"{self.strFilename}{self.strSeparator}{self.strLabel}\n")
-                for filename, label in self.Map.items():
-                    f.write(f"{filename}{self.strSeparator}{label}\n")
-
-            QMessageBox.information(self, "Success", f"CSV file saved successfully:\n{csv_path}")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
-
-    def on_pushButton_start_clicked(self):
-        csv_file = self.lineEdit_Csv.text().strip()
-        root_dir = self.lineEdit_Directory.text().strip()
-
-        if not csv_file or not os.path.exists(csv_file):
-            QMessageBox.warning(self, "Error", "Please select a valid CSV file!")
-            return
-        if not root_dir or not os.path.exists(root_dir):
-            QMessageBox.warning(self, "Error", "Please select a valid root directory!")
-            return
-
-        self.pushButton_start.setEnabled(False)
-        QApplication.processEvents()
-
-        self.Directory = QDir(root_dir)
-        self.Map = self.read_csv_file(  csv_file,
-                                        filepath_column=self.strFilename, 
-                                        label_column=self.strLabel, 
-                                        separator=self.strSeparator,
-                                        has_header=self.checkBox_hasHeader.isChecked())
-
-        if not self.Map:
-            QMessageBox.warning(self, "Error", "CSV file is empty or invalid!")
-            self.pushButton_start.setEnabled(True)
-            return
-
-        self.TotalImg = len(self.Map)
-        self.CurrentImg = 0
-
-        self.spinBox_ID.setMaximum(self.TotalImg - 1)
-        self.progressBar.setMaximum(self.TotalImg)
-        self.progressBar.setValue(0)
-        self.progressBar.setFormat("Image %v of %m")
-
-        invalid = [f"{fn} → {lbl}" for fn, lbl in self.Map.items()
-                   if lbl.strip() and lbl.strip() not in self.validLabels]
-
-        if invalid:
-            QMessageBox.warning(self, "Invalid Labels",
-                                "Some labels are not valid:\n\n" + "\n".join(invalid[:15]))
-
-        for btn in self.ButtonPtr:
-            btn.setEnabled(True)
-        self.toolButton_Previous.setEnabled(True)
-        self.toolButton_Next.setEnabled(True)
-        self.toolButton_Save.setEnabled(True)
-
-        QMessageBox.information(self, "Ready", f"Loaded {self.TotalImg} images.")
-        self.change_current_image()
-        self.pushButton_start.setEnabled(True)
-
-    def read_csv_file(self, csv_path, 
-                      filepath_column="filepath", 
-                      label_column="label", 
-                      separator=",",
-                      has_header=True):
-        """
-        Lê um CSV e retorna OrderedDict[filename -> label]
-        """
-        mapping = OrderedDict()
-        
-        if not os.path.exists(csv_path):
-            QMessageBox.warning(self, "Error", f"CSV file not found:\n{csv_path}")
-            return mapping
-
+    def load_csv(self, csv_path):
+        self.Map.clear()
         try:
             import pandas as pd
-
-            # Lê o CSV com pandas
-            df = pd.read_csv(csv_path, 
-                             sep=separator, 
-                             header=0 if has_header else None,
-                             dtype=str,           # força tudo como string
-                             keep_default_na=False)
-
-            # Normaliza nomes das colunas (remove espaços extras)
+            df = pd.read_csv(csv_path, sep=",", dtype=str, keep_default_na=False)
             df.columns = [col.strip() for col in df.columns]
 
-            # Verifica se as colunas existem
-            if filepath_column not in df.columns:
-                QMessageBox.warning(self, "Warning", 
-                                    f"Column '{filepath_column}' not found in CSV.\n"
-                                    f"Available columns: {list(df.columns)}")
-                return mapping
+            filepath_col = df.columns[0]
+            label_col = df.columns[1] if len(df.columns) > 1 else "label"
 
-            if label_column not in df.columns:
-                # Se não existir coluna de label, cria com valores vazios
-                df[label_column] = ""
-
-            # Preenche o OrderedDict
             for _, row in df.iterrows():
-                filename = str(row[filepath_column]).strip()
-                label = str(row[label_column]).strip() if pd.notna(row[label_column]) else ""
-                if filename:  # ignora linhas com filename vazio
-                    mapping[filename] = label
-
-        except ImportError:
-            QMessageBox.critical(self, "Error", "Pandas is not installed.\nRun: pip install pandas")
+                fn = str(row[filepath_col]).strip()
+                lbl = str(row.get(label_col, "")).strip()
+                if fn:
+                    self.Map[fn] = lbl
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to read CSV:\n{str(e)}")
+            QMessageBox.critical(self, "Error", f"Failed to read CSV:\n{e}")
 
-        return mapping
+    def populate_lists(self):
+        self.list_unlabeled.clear()
+        self.list_labeled.clear()
 
-    def change_current_image(self):
-        if not self.Map:
+        for filename, label in self.Map.items():
+            item = QListWidgetItem(filename)
+            if label and label in self.validLabels:
+                self.list_labeled.addItem(item)
+            else:
+                self.list_unlabeled.addItem(item)
+
+    def show_first_image(self):
+        if self.list_unlabeled.count() > 0:
+            self.list_unlabeled.setCurrentRow(0)
+            self.on_list_item_clicked(self.list_unlabeled.item(0))
+        elif self.list_labeled.count() > 0:
+            self.list_labeled.setCurrentRow(0)
+            self.on_list_item_clicked(self.list_labeled.item(0))
+
+    def on_list_item_clicked(self, item):
+        if not item:
             return
+        filename = item.text()
+        self.CurrentImg = filename
+        self.show_image(filename)
 
-        filename = list(self.Map.keys())[self.CurrentImg]
-        label = self.Map[filename]
-        
-        print("")
-        print("filename",filename)
-        print("label",label)
-
+    def show_image(self, filename):
         full_path = self.Directory.filePath(filename)
-        self.statusBar().showMessage(f"Image: {full_path}", 3000)
+        self.statusBar().showMessage(f"Image: {filename}", 4000)
 
         if self.scene:
             self.scene.clear()
@@ -467,31 +293,105 @@ class MainWindow(QMainWindow):
 
         pixmap = QPixmap(full_path)
         if not pixmap.isNull():
-            view_h = self.graphicsView.height()
-            pixmap = pixmap.scaledToHeight(view_h, Qt.SmoothTransformation)
-            self.scene.addPixmap(pixmap)
+            scaled = pixmap.scaledToHeight(self.graphicsView.height() - 20, Qt.SmoothTransformation)
+            self.scene.addPixmap(scaled)
 
-        self.lineEdit_filename.setText(filename)
-        self.spinBox_ID.setValue(self.CurrentImg)
-        self.lineEdit_Type.setText(label)
-        self.progressBar.setValue(self.CurrentImg)
+    def assign_label(self, label: str):
+        if not self.CurrentImg:
+            return
 
-        if label and label in self.LabelDict:
-            icon_path = self.LabelDict[label]["button_image"]
-            if icon_path and os.path.exists(icon_path):
-                pix = QPixmap(icon_path).scaled(
-                    self.TypeIconSize, self.TypeIconSize, Qt.KeepAspectRatio
-                )
-                self.lineEdit_Type.setPixmap(pix)
+        # Salva o label
+        self.Map[self.CurrentImg] = label
 
+        # Refresh das listas
+        self.populate_lists()
 
-    def on_actionAbout_triggered(self):
-        QMessageBox.about(self, "About Edit My Dataset",
-                          "Program for editing / viewing tagged datasets.\n\n"
-                          "Converted to pure Python + PyQt5.")
+        # Avança para o próximo da MESMA lista de onde veio
+        self.auto_advance_smart()
+
+        # Atualiza progresso
+        classified_count = sum(1 for v in self.Map.values() if v.strip())
+        self.progressBar.setValue(classified_count)
+
+    def auto_advance_smart(self):
+        """Avança para o próximo item da mesma lista de onde veio a imagem atual"""
+        if not self.CurrentImg:
+            return
+
+        # Verifica em qual lista está a imagem atual
+        current_item = None
+        list_widget = None
+
+        # Procura na lista de labeled
+        for i in range(self.list_labeled.count()):
+            if self.list_labeled.item(i).text() == self.CurrentImg:
+                list_widget = self.list_labeled
+                current_item = i
+                break
+
+        # Se não encontrou, procura na unlabeled
+        if list_widget is None:
+            for i in range(self.list_unlabeled.count()):
+                if self.list_unlabeled.item(i).text() == self.CurrentImg:
+                    list_widget = self.list_unlabeled
+                    current_item = i
+                    break
+
+        if list_widget is None:
+            # Fallback
+            self.show_first_image()
+            return
+
+        # Avança para o próximo item da mesma lista
+        next_index = current_item + 1
+
+        if next_index < list_widget.count():
+            # Ainda tem itens na mesma lista
+            list_widget.setCurrentRow(next_index)
+            self.on_list_item_clicked(list_widget.item(next_index))
+        else:
+            # Fim da lista atual → vai para a outra lista (se tiver itens)
+            if list_widget == self.list_labeled and self.list_unlabeled.count() > 0:
+                self.list_unlabeled.setCurrentRow(0)
+                self.on_list_item_clicked(self.list_unlabeled.item(0))
+            elif list_widget == self.list_unlabeled and self.list_labeled.count() > 0:
+                self.list_labeled.setCurrentRow(0)
+                self.on_list_item_clicked(self.list_labeled.item(0))
+            else:
+                # Não tem mais imagens
+                self.CurrentImg = None
+                self.statusBar().showMessage("All images processed!", 4000)
+
+    def show_first_image(self):
+        """Mostra a primeira imagem disponível (prioridade para unlabeled)"""
+        if self.list_unlabeled.count() > 0:
+            self.list_unlabeled.setCurrentRow(0)
+            self.on_list_item_clicked(self.list_unlabeled.item(0))
+        elif self.list_labeled.count() > 0:
+            self.list_labeled.setCurrentRow(0)
+            self.on_list_item_clicked(self.list_labeled.item(0))
+
+    def save_csv(self):
+        if not self.Map:
+            QMessageBox.warning(self, "Warning", "No data loaded!")
+            return
+
+        csv_path = self.line_csv.text().strip()
+        if not csv_path:
+            csv_path, _ = QFileDialog.getSaveFileName(self, "Save CSV", "", "CSV (*.csv)")
+
+        if csv_path:
+            try:
+                with open(csv_path, "w", encoding="utf-8", newline="") as f:
+                    f.write("filepath,label\n")
+                    for fn, lbl in self.Map.items():
+                        f.write(f"{fn},{lbl}\n")
+                QMessageBox.information(self, "Success", "CSV saved successfully!")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
 
     def closeEvent(self, event):
-        reply = QMessageBox.question(self, "Exit", "Close the application?",
+        reply = QMessageBox.question(self, "Exit", "Close the program?", 
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             event.accept()
