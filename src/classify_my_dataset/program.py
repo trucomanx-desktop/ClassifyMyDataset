@@ -5,22 +5,28 @@ import json
 from pathlib import Path
 from collections import OrderedDict
 import re
+
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
     QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox, QGraphicsScene,
     QGraphicsView, QListWidget, QListWidgetItem, QToolBar, QAction, QProgressBar,
-    QFrame
+    QFormLayout
 )
 from PyQt5.QtGui import QPixmap, QIcon, QFont
 from PyQt5.QtCore import Qt, QDir, QSize
+
+
 def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower()
             for text in re.split('([0-9]+)', str(s))]
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Classify My Dataset")
-        self.resize(1200, 700)
+        self.resize(1250, 720)
+
         # Data
         self.Map = OrderedDict() # filename -> label
         self.validLabels = set()
@@ -28,99 +34,125 @@ class MainWindow(QMainWindow):
         self.Directory = QDir()
         self.CurrentImg = None
         self.scene = None
+
         self.setup_ui()
         self.load_icons()
+
     def setup_ui(self):
         # ==================== TOOLBAR ====================
         toolbar = QToolBar()
         toolbar.setIconSize(QSize(48, 48))
         self.addToolBar(toolbar)
+
         self.action_save = QAction("Save", self)
         self.action_save.setShortcut("Ctrl+S")
         self.action_save.triggered.connect(self.save_csv)
         toolbar.addAction(self.action_save)
+
         toolbar.addSeparator()
+
         self.action_exit = QAction("Exit", self)
         self.action_exit.triggered.connect(self.close)
         toolbar.addAction(self.action_exit)
+
         # ==================== MAIN WIDGET ====================
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = QVBoxLayout(central)
-        main_layout.setSpacing(8)
-        # === CONFIG SECTION ===
-        config_layout = QHBoxLayout()
-        config_layout.setSpacing(15)
+        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+
+        # === CONFIG SECTION (AGORA EM VERTICAL) ===
+        config_group = QFormLayout()
+        config_group.setLabelAlignment(Qt.AlignRight)
+        config_group.setSpacing(12)
+
         # Root Directory
-        lbl_dir = QLabel("Root Directory:")
         self.line_dir = QLineEdit()
         btn_dir = QPushButton("...")
-        btn_dir.setMaximumWidth(40)
+        btn_dir.setMaximumWidth(50)
         btn_dir.clicked.connect(self.select_root_dir)
+        dir_layout = QHBoxLayout()
+        dir_layout.addWidget(self.line_dir, 1)
+        dir_layout.addWidget(btn_dir)
+        config_group.addRow("Root Directory:", dir_layout)
+
         # Input CSV
-        lbl_csv = QLabel("Input CSV:")
         self.line_csv = QLineEdit()
         btn_csv = QPushButton("...")
-        btn_csv.setMaximumWidth(40)
+        btn_csv.setMaximumWidth(50)
         btn_csv.clicked.connect(self.select_csv)
+        csv_layout = QHBoxLayout()
+        csv_layout.addWidget(self.line_csv, 1)
+        csv_layout.addWidget(btn_csv)
+        config_group.addRow("Input CSV:", csv_layout)
+
         # Config JSON
-        lbl_json = QLabel("Config JSON:")
         self.line_json = QLineEdit()
         btn_json = QPushButton("...")
-        btn_json.setMaximumWidth(40)
+        btn_json.setMaximumWidth(50)
         btn_json.clicked.connect(self.select_json)
-        config_layout.addWidget(lbl_dir)
-        config_layout.addWidget(self.line_dir, 2)
-        config_layout.addWidget(btn_dir)
-        config_layout.addWidget(lbl_csv)
-        config_layout.addWidget(self.line_csv, 2)
-        config_layout.addWidget(btn_csv)
-        config_layout.addWidget(lbl_json)
-        config_layout.addWidget(self.line_json, 2)
-        config_layout.addWidget(btn_json)
-        main_layout.addLayout(config_layout)
+        json_layout = QHBoxLayout()
+        json_layout.addWidget(self.line_json, 1)
+        json_layout.addWidget(btn_json)
+        config_group.addRow("Config JSON:", json_layout)
+
+        main_layout.addLayout(config_group)
+
         # Start Button
         self.btn_start = QPushButton("Load Dataset and Start")
         self.btn_start.setFont(QFont("", 12, QFont.Bold))
         self.btn_start.clicked.connect(self.start_classification)
         main_layout.addWidget(self.btn_start)
+
         # ==================== MAIN AREA ====================
         content_splitter = QSplitter(Qt.Horizontal)
         main_layout.addWidget(content_splitter, 1)
+
         # LEFT: Two ListWidgets
         left_panel = QVBoxLayout()
         left_widget = QWidget()
         left_widget.setLayout(left_panel)
+
         self.list_unlabeled = QListWidget()
         self.list_labeled = QListWidget()
+
         lbl_un = QLabel("Without Label")
         lbl_un.setAlignment(Qt.AlignCenter)
         lbl_la = QLabel("With Label")
         lbl_la.setAlignment(Qt.AlignCenter)
+
         left_panel.addWidget(lbl_un)
         left_panel.addWidget(self.list_unlabeled, 1)
         left_panel.addWidget(lbl_la)
         left_panel.addWidget(self.list_labeled, 1)
+
         left_container = QWidget()
         left_container.setLayout(left_panel)
         content_splitter.addWidget(left_container)
+
         # CENTER: Image
         self.graphicsView = QGraphicsView()
-        self.graphicsView.setMinimumWidth(400)
+        self.graphicsView.setMinimumWidth(500)
         content_splitter.addWidget(self.graphicsView)
+
         # RIGHT: Classification Buttons
         self.right_widget = QWidget()
         self.right_layout = QVBoxLayout(self.right_widget)
         self.right_layout.addStretch()
         content_splitter.addWidget(self.right_widget)
-        content_splitter.setSizes([250, 600, 250])
+
+        content_splitter.setSizes([280, 650, 280])
+
         # Progress Bar
         self.progressBar = QProgressBar()
         self.progressBar.setFormat("Classified: %v / %m")
         main_layout.addWidget(self.progressBar)
+
         # Connections
         self.list_unlabeled.itemClicked.connect(self.on_list_item_clicked)
         self.list_labeled.itemClicked.connect(self.on_list_item_clicked)
+
     def load_icons(self):
         script_dir = Path(__file__).parent
         icons_dir = script_dir / "icons"
@@ -132,24 +164,29 @@ class MainWindow(QMainWindow):
             path = icons_dir / icon_file
             if path.exists():
                 action.setIcon(QIcon(str(path)))
+
     # ====================== SELECTORS ======================
     def select_root_dir(self):
         path = QFileDialog.getExistingDirectory(self, "Select Root Directory")
         if path:
             self.line_dir.setText(path)
+
     def select_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "Select CSV File", "", "CSV (*.csv)")
         if path:
             self.line_csv.setText(path)
+
     def select_json(self):
         path, _ = QFileDialog.getOpenFileName(self, "Select Config JSON", "", "JSON (*.json)")
         if path:
             self.line_json.setText(path)
+
     # ====================== START ======================
     def start_classification(self):
         csv_path = self.line_csv.text().strip()
         json_path = self.line_json.text().strip()
         root_dir = self.line_dir.text().strip()
+
         if not csv_path or not os.path.exists(csv_path):
             QMessageBox.warning(self, "Error", "Please select a valid CSV file!")
             return
@@ -159,12 +196,14 @@ class MainWindow(QMainWindow):
         if not root_dir or not os.path.exists(root_dir):
             QMessageBox.warning(self, "Error", "Please select Root Directory!")
             return
+
         self.Directory = QDir(root_dir)
         self.load_config(json_path)
         self.load_csv(csv_path)
         self.populate_lists()
         self.progressBar.setMaximum(len(self.Map))
-        self.progressBar.setValue(sum(1 for v in self.Map.values() if v))
+        self.progressBar.setValue(sum(1 for v in self.Map.values() if v.strip()))
+
         if self.Map:
             self.show_first_image()
     def load_config(self, json_path):
@@ -172,19 +211,23 @@ class MainWindow(QMainWindow):
         for btn in self.ButtonPtr:
             btn.setParent(None)
         self.ButtonPtr.clear()
+
         try:
             with open(json_path, "r", encoding="utf-8") as f:
                 buttons = json.load(f)
+
             for btn_data in buttons:
                 label = btn_data.get("button_label", "").strip()
                 if not label:
                     continue
                 self.validLabels.add(label)
+
                 button = QPushButton(label, self)
                 button.setMinimumHeight(60)
                 button.clicked.connect(lambda _, lbl=label: self.assign_label(lbl))
                 self.right_layout.addWidget(button)
                 self.ButtonPtr.append(button)
+
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load JSON config:\n{e}")
     def load_csv(self, csv_path):
@@ -314,6 +357,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "Success", "CSV saved successfully!")
             except Exception as e:
                 QMessageBox.critical(self, "Error", str(e))
+
     def closeEvent(self, event):
         reply = QMessageBox.question(self, "Exit", "Close the program?",
                                      QMessageBox.Yes | QMessageBox.No)
@@ -321,6 +365,8 @@ class MainWindow(QMainWindow):
             event.accept()
         else:
             event.ignore()
+
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
