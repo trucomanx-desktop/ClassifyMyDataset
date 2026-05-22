@@ -9,11 +9,12 @@ import re
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QFileDialog, QMessageBox, QGraphicsScene,
-    QPushButton, QLabel, QHBoxLayout
+    QPushButton, QLabel, QHBoxLayout, QVBoxLayout, QFormLayout, QGridLayout,
+    QToolButton, QLineEdit, QSpinBox, QCheckBox, QProgressBar, QGraphicsView,
+    QMenuBar, QMenu, QAction, QSizePolicy, QSpacerItem, QWidget
 )
-from PyQt5.QtGui import QPixmap, QIcon, QKeySequence
-from PyQt5.QtCore import Qt, QDir, QDirIterator, QSize
-from PyQt5 import uic
+from PyQt5.QtGui import QPixmap, QIcon, QKeySequence, QFont
+from PyQt5.QtCore import Qt, QDir, QSize
 
 
 def natural_sort_key(s):
@@ -25,8 +26,8 @@ def natural_sort_key(s):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        uic.loadUi("forms/mainwindow.ui", self)
         self.setWindowTitle("Edit My Dataset")
+        self.resize(800, 600)
 
         # Configuração de caminhos
         self.script_dir = Path(__file__).parent
@@ -49,33 +50,158 @@ class MainWindow(QMainWindow):
         self.strSeparator = ","
 
         self.setup_ui()
-        self.load_toolbar_icons()      # ← Novo
+        self.load_toolbar_icons()
         self.load_init_data()
 
     def setup_ui(self):
-        """Connect all signals"""
-        self.toolButton_Exit.clicked.connect(self.close)
-        self.pushButton_Directory.clicked.connect(self.on_pushButton_Directory_clicked)
-        self.pushButton_Csv.clicked.connect(self.on_pushButton_Csv_clicked)
-        self.toolButton_Next.clicked.connect(self.on_toolButton_Next_clicked)
-        self.toolButton_Previous.clicked.connect(self.on_toolButton_Previous_clicked)
-        self.toolButton_Save.clicked.connect(self.on_toolButton_Save_clicked)
-        self.pushButton_start.clicked.connect(self.on_pushButton_start_clicked)
+        """Cria toda a interface manualmente"""
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
 
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(8, 8, 8, 8)
+        main_layout.setSpacing(10)
+
+        # ==================== TOP TOOLBAR ====================
+        top_layout = QHBoxLayout()
+        top_layout.setSpacing(6)
+
+        self.toolButton_Save = QToolButton()
+        self.toolButton_Save.setText("Save")
+        self.toolButton_Save.setEnabled(False)
+        self.toolButton_Save.setIconSize(QSize(64, 64))
+        self.toolButton_Save.clicked.connect(self.on_toolButton_Save_clicked)
+
+        self.toolButton_Previous = QToolButton()
+        self.toolButton_Previous.setText("Previous")
+        self.toolButton_Previous.setEnabled(False)
+        self.toolButton_Previous.setIconSize(QSize(64, 64))
+        self.toolButton_Previous.setShortcut(QKeySequence("Left"))
+        self.toolButton_Previous.clicked.connect(self.on_toolButton_Previous_clicked)
+
+        self.toolButton_Next = QToolButton()
+        self.toolButton_Next.setText("Next")
+        self.toolButton_Next.setEnabled(False)
+        self.toolButton_Next.setIconSize(QSize(64, 64))
+        self.toolButton_Next.setShortcut(QKeySequence("Right"))
+        self.toolButton_Next.clicked.connect(self.on_toolButton_Next_clicked)
+
+        self.toolButton_Exit = QToolButton()
+        self.toolButton_Exit.setText("Exit")
+        self.toolButton_Exit.setIconSize(QSize(64, 64))
+        self.toolButton_Exit.clicked.connect(self.close)
+
+        top_layout.addWidget(self.toolButton_Save)
+        top_layout.addWidget(self.toolButton_Previous)
+        top_layout.addWidget(self.toolButton_Next)
+        top_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        top_layout.addWidget(self.toolButton_Exit)
+
+        main_layout.addLayout(top_layout)
+
+        # ==================== FORM LAYOUT ====================
+        form_layout = QFormLayout()
+        form_layout.setLabelAlignment(Qt.AlignRight)
+        form_layout.setSpacing(8)
+
+        self.pushButton_Directory = QPushButton("Root directory:")
+        #self.pushButton_Directory.setFont(QFont("", 15))
+        self.pushButton_Directory.clicked.connect(self.on_pushButton_Directory_clicked)
+
+        self.lineEdit_Directory = QLineEdit()
+        self.lineEdit_Directory.setMinimumHeight(38)
+        #self.lineEdit_Directory.setFont(QFont("", 15))
+
+        h_dir = QHBoxLayout()
+        h_dir.addWidget(self.lineEdit_Directory)
+        form_layout.addRow(self.pushButton_Directory, h_dir)
+
+        self.pushButton_Csv = QPushButton("Input csv file:")
+        #self.pushButton_Csv.setFont(QFont("", 15))
+        self.pushButton_Csv.clicked.connect(self.on_pushButton_Csv_clicked)
+
+        self.lineEdit_Csv = QLineEdit()
+        self.lineEdit_Csv.setMinimumHeight(38)
+        #self.lineEdit_Csv.setFont(QFont("", 15))
+
+        form_layout.addRow(self.pushButton_Csv, self.lineEdit_Csv)
+
+        self.checkBox_hasHeader = QCheckBox("Csv has header")
+        self.checkBox_hasHeader.setChecked(True)
+        form_layout.addRow(self.checkBox_hasHeader)
+
+        main_layout.addLayout(form_layout)
+
+        # ==================== START BUTTON ====================
+        self.pushButton_start = QPushButton("Read data and start")
+        #self.pushButton_start.setFont(QFont("", 15))
+        self.pushButton_start.clicked.connect(self.on_pushButton_start_clicked)
+        main_layout.addWidget(self.pushButton_start)
+
+        # ==================== IMAGE + LABEL BUTTONS ====================
+        image_layout = QHBoxLayout()
+        image_layout.setSpacing(10)
+
+        self.graphicsView = QGraphicsView()
+        self.graphicsView.setMinimumHeight(300)
+        image_layout.addWidget(self.graphicsView, 3)
+
+        self.verticalLayout_buttons = QVBoxLayout()
+        image_layout.addLayout(self.verticalLayout_buttons, 1)
+
+        main_layout.addLayout(image_layout, 1)
+
+        # ==================== BOTTOM INFO ====================
+        bottom_grid = QGridLayout()
+        bottom_grid.setSpacing(8)
+
+        label_filename = QLabel("Filename:")
+        #label_filename.setFont(QFont("", 15))
+        self.lineEdit_filename = QLineEdit()
+        self.lineEdit_filename.setReadOnly(True)
+        #self.lineEdit_filename.setFont(QFont("", 15))
+
+        label_id = QLabel("ID of image:")
+        #label_id.setFont(QFont("", 15))
+        self.spinBox_ID = QSpinBox()
+        #self.spinBox_ID.setFont(QFont("", 15))
         self.spinBox_ID.editingFinished.connect(self.on_spinBox_ID_editingFinished)
 
-        # Icon inside lineEdit_Type
-        self.iconLabel = QLabel(self.lineEdit_Type)
-        self.iconLabel.setFixedSize(self.TypeIconSize, self.TypeIconSize)
-        layout = QHBoxLayout(self.lineEdit_Type)
-        layout.setContentsMargins(4, 0, 0, 0)
-        layout.addWidget(self.iconLabel, 0, Qt.AlignLeft)
-        layout.addStretch()
-        self.lineEdit_Type.setLayout(layout)
-        self.lineEdit_Type.setTextMargins(self.TypeIconSize + 8, 0, 0, 0)
+        label_type = QLabel("Type:")
+        #label_type.setFont(QFont("", 24))
+        self.lineEdit_Type = QLineEdit()
+        self.lineEdit_Type.setReadOnly(True)
+        #self.lineEdit_Type.setFont(QFont("", 24))
+        self.lineEdit_Type.setMaximumWidth(250)
+
+        bottom_grid.addWidget(label_type, 0, 0, 2, 1)
+        bottom_grid.addWidget(self.lineEdit_Type, 0, 1, 2, 1)
+        bottom_grid.addWidget(label_filename, 0, 2)
+        bottom_grid.addWidget(self.lineEdit_filename, 0, 3)
+        bottom_grid.addWidget(label_id, 1, 2)
+        bottom_grid.addWidget(self.spinBox_ID, 1, 3)
+
+        main_layout.addLayout(bottom_grid)
+
+        # ==================== PROGRESS BAR ====================
+        self.progressBar = QProgressBar()
+        #self.progressBar.setFont(QFont("", 15))
+        self.progressBar.setMinimum(0)
+        self.progressBar.setMaximum(100)
+        self.progressBar.setValue(0)
+        main_layout.addWidget(self.progressBar)
+
+        # ==================== MENU ====================
+        menubar = QMenuBar()
+        self.setMenuBar(menubar)
+        menu_help = QMenu("Help", self)
+        action_about = QAction("About", self)
+        action_about.triggered.connect(self.on_actionAbout_triggered)
+        menu_help.addAction(action_about)
+        menubar.addMenu(menu_help)
 
     def load_toolbar_icons(self):
-        """Carrega ícones da barra de ferramentas e botões"""
+        """Carrega ícones da barra de ferramentas"""
         icon_map = {
             self.toolButton_Save: "document-save-all.png",
             self.toolButton_Previous: "go-previous.png",
@@ -86,24 +212,24 @@ class MainWindow(QMainWindow):
             self.pushButton_start: "checkbox.png",
         }
 
-        icon_size = QSize(48, 48)
+        #icon_size = QSize(48, 48)
 
         for widget, icon_file in icon_map.items():
             icon_full_path = self.icons_dir / icon_file
             if icon_full_path.exists():
                 widget.setIcon(QIcon(str(icon_full_path)))
-                widget.setIconSize(icon_size)
-                print(f"✓ Ícone carregado: {icon_file}")
+                #widget.setIconSize(icon_size)
             else:
                 print(f"⚠️ Ícone não encontrado: {icon_file}")
 
-        # Ícone da janela (opcional)
-        app_icon_path = self.icons_dir / "edit-my-dataset.png"
-        if app_icon_path.exists():
-            self.setWindowIcon(QIcon(str(app_icon_path)))
+        # Ícone da janela
+        app_icon = self.icons_dir / "edit-my-dataset.png"
+        if app_icon.exists():
+            self.setWindowIcon(QIcon(str(app_icon)))
+
+    # ==================== RESTO DO CÓDIGO (igual ao anterior) ====================
 
     def load_init_data(self):
-        """Load buttons configuration from JSON"""
         home = Path.home()
         init_file = home / "edit-my-dataset.json"
 
@@ -127,7 +253,6 @@ class MainWindow(QMainWindow):
                 width = btn_data.get("button_image_width", 0)
                 shortcut = btn_data.get("short_cut", "").strip()
 
-                # Resolve relative paths to home
                 if image_path and not os.path.isabs(image_path):
                     image_path = str(home / image_path)
 
@@ -140,17 +265,14 @@ class MainWindow(QMainWindow):
                     if width > 0:
                         button.setIconSize(pixmap.rect().size().scaled(width, 999, Qt.KeepAspectRatio))
 
-                # Assign shortcut if available
                 if shortcut:
                     button.setShortcut(QKeySequence(shortcut))
 
-                # Click handler
                 button.clicked.connect(lambda _, lbl=label: self.assign_label(lbl))
 
                 self.verticalLayout_buttons.addWidget(button)
                 self.ButtonPtr.append(button)
 
-                # Store metadata
                 self.LabelDict[label] = {
                     "button_image": image_path,
                     "button_image_width": width
@@ -160,7 +282,6 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"Failed to load configuration:\n{e}")
 
     def create_default_file(self, filepath):
-        """Create default JSON with buttons"""
         default = {
             "buttons": [
                 {"button_label": "negative", "short_cut": "1"},
@@ -174,23 +295,18 @@ class MainWindow(QMainWindow):
             json.dump(default, f, indent=4, ensure_ascii=False)
 
     def assign_label(self, label: str):
-        """Assign label to current image"""
         if not self.Map:
             return
-
         filename = list(self.Map.keys())[self.CurrentImg]
         self.Map[filename] = label
-
         self.statusbar.showMessage(f"Last image labeled: {label}", 4000)
         self.on_toolButton_Next_clicked()
 
     # ====================== SLOTS ======================
 
     def on_pushButton_Directory_clicked(self):
-        print("ok1")
         directory = QFileDialog.getExistingDirectory(self, "Select Root Directory")
         if directory:
-            print("ok2")
             self.lineEdit_Directory.setText(directory)
 
     def on_pushButton_Csv_clicked(self):
@@ -230,7 +346,6 @@ class MainWindow(QMainWindow):
             with open(csv_path, "w", encoding="utf-8", newline="") as f:
                 if has_header:
                     f.write(f"{self.strFilename}{self.strSeparator}{self.strLabel}\n")
-                
                 for filename, label in self.Map.items():
                     f.write(f"{filename}{self.strSeparator}{label}\n")
 
@@ -253,8 +368,6 @@ class MainWindow(QMainWindow):
         QApplication.processEvents()
 
         self.Directory = QDir(root_dir)
-
-        # Read CSV
         self.Map = self.read_csv_file(csv_file)
 
         if not self.Map:
@@ -270,19 +383,13 @@ class MainWindow(QMainWindow):
         self.progressBar.setValue(0)
         self.progressBar.setFormat("Image %v of %m")
 
-        # Validate labels
-        invalid = []
-        for i, (filename, label) in enumerate(self.Map.items()):
-            if label.strip() and label.strip() not in self.validLabels:
-                invalid.append(f"{filename} → {label}")
-            self.progressBar.setValue(i)
-            QApplication.processEvents()
+        invalid = [f"{fn} → {lbl}" for fn, lbl in self.Map.items()
+                   if lbl.strip() and lbl.strip() not in self.validLabels]
 
         if invalid:
             QMessageBox.warning(self, "Invalid Labels",
                                 "Some labels are not valid:\n\n" + "\n".join(invalid[:15]))
 
-        # Enable controls
         for btn in self.ButtonPtr:
             btn.setEnabled(True)
         self.toolButton_Previous.setEnabled(True)
@@ -294,11 +401,7 @@ class MainWindow(QMainWindow):
         self.pushButton_start.setEnabled(True)
 
     def read_csv_file(self, csv_path):
-        """Read CSV maintaining natural order"""
         mapping = OrderedDict()
-        #if not os.path.exists(csv_path):
-        #    return mapping
-
         try:
             with open(csv_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
@@ -307,24 +410,20 @@ class MainWindow(QMainWindow):
                 line = line.strip()
                 if not line:
                     continue
-
                 parts = line.split(self.strSeparator, 1)
                 if len(parts) >= 2:
                     filename = parts[0].strip()
                     label = parts[1].strip()
                     mapping[filename] = label
                 elif i == 0 and self.checkBox_hasHeader.isChecked():
-                    # Header row
                     if len(parts) >= 2:
                         self.strFilename = parts[0].strip()
                         self.strLabel = parts[1].strip()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to read CSV:\n{e}")
-
         return mapping
 
     def change_current_image(self):
-        """Update UI with current image"""
         if not self.Map:
             return
 
@@ -334,7 +433,6 @@ class MainWindow(QMainWindow):
         full_path = self.Directory.filePath(filename)
         self.statusbar.showMessage(f"Image: {full_path}", 3000)
 
-        # Load image
         if self.scene:
             self.scene.clear()
         else:
@@ -347,13 +445,11 @@ class MainWindow(QMainWindow):
             pixmap = pixmap.scaledToHeight(view_h, Qt.SmoothTransformation)
             self.scene.addPixmap(pixmap)
 
-        # Update fields
         self.lineEdit_filename.setText(filename)
         self.spinBox_ID.setValue(self.CurrentImg)
         self.lineEdit_Type.setText(label)
         self.progressBar.setValue(self.CurrentImg)
 
-        # Icon do label
         if label and label in self.LabelDict:
             icon_path = self.LabelDict[label]["button_image"]
             if icon_path and os.path.exists(icon_path):
@@ -365,6 +461,11 @@ class MainWindow(QMainWindow):
                 self.iconLabel.clear()
         else:
             self.iconLabel.clear()
+
+    def on_actionAbout_triggered(self):
+        QMessageBox.about(self, "About Edit My Dataset",
+                          "Program for editing / viewing tagged datasets.\n\n"
+                          "Converted to pure Python + PyQt5.")
 
     def closeEvent(self, event):
         reply = QMessageBox.question(self, "Exit", "Close the application?",
