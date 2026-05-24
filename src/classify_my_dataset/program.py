@@ -33,6 +33,7 @@ class MainWindow(QMainWindow):
         self.ButtonPtr = []
         self.Directory = QDir()
         self.CurrentImg = None
+        self.CurrentList = None
         self.scene = None
 
         self.setup_ui()
@@ -149,8 +150,20 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.progressBar)
 
         # Connections
-        self.list_unlabeled.itemClicked.connect(self.on_list_item_clicked)
-        self.list_labeled.itemClicked.connect(self.on_list_item_clicked)
+        self.list_unlabeled.itemClicked.connect(
+            lambda item: self.on_list_item_clicked(
+                item,
+                self.list_unlabeled
+            )
+        )
+
+        self.list_labeled.itemClicked.connect(
+            lambda item: self.on_list_item_clicked(
+                item,
+                self.list_labeled
+            )
+        )
+
 
     def load_icons(self):
         script_dir = Path(__file__).parent
@@ -253,19 +266,24 @@ class MainWindow(QMainWindow):
                 self.list_labeled.addItem(item)
             else:
                 self.list_unlabeled.addItem(item)
-    def show_first_image(self):
-        if self.list_unlabeled.count() > 0:
-            self.list_unlabeled.setCurrentRow(0)
-            self.on_list_item_clicked(self.list_unlabeled.item(0))
-        elif self.list_labeled.count() > 0:
-            self.list_labeled.setCurrentRow(0)
-            self.on_list_item_clicked(self.list_labeled.item(0))
-    def on_list_item_clicked(self, item):
+
+    def on_list_item_clicked(self, item, source_list):
         if not item:
             return
+
+        # Limpa seleção da outra lista
+        if source_list == self.list_unlabeled:
+            self.list_labeled.clearSelection()
+        else:
+            self.list_unlabeled.clearSelection()
+
         filename = item.text()
+
         self.CurrentImg = filename
+        self.CurrentList = source_list
+
         self.show_image(filename)
+    
     def show_image(self, filename):
         full_path = self.Directory.filePath(filename)
         self.statusBar().showMessage(f"Image: {filename}", 4000)
@@ -278,68 +296,136 @@ class MainWindow(QMainWindow):
         if not pixmap.isNull():
             scaled = pixmap.scaledToHeight(self.graphicsView.height() - 20, Qt.SmoothTransformation)
             self.scene.addPixmap(scaled)
+
     def assign_label(self, label: str):
-        if not self.CurrentImg:
+        if not self.CurrentImg or not self.CurrentList:
             return
-        # Salva o label
+
+        current_list = self.CurrentList
+        current_row = current_list.currentRow()
+
+        # Atualiza label
         self.Map[self.CurrentImg] = label
-        # Refresh das listas
+
+        # Verifica se estava na unlabeled
+        came_from_unlabeled = (
+            current_list == self.list_unlabeled
+        )
+
+        # Refresh listas
         self.populate_lists()
-        # Avança para o próximo da MESMA lista de onde veio
-        self.auto_advance_smart()
-        # Atualiza progresso
-        classified_count = sum(1 for v in self.Map.values() if v.strip())
-        self.progressBar.setValue(classified_count)
-    def auto_advance_smart(self):
-        """Avança para o próximo item da mesma lista de onde veio a imagem atual"""
-        if not self.CurrentImg:
-            return
-        # Verifica em qual lista está a imagem atual
-        current_item = None
-        list_widget = None
-        # Procura na lista de labeled
-        for i in range(self.list_labeled.count()):
-            if self.list_labeled.item(i).text() == self.CurrentImg:
-                list_widget = self.list_labeled
-                current_item = i
-                break
-        # Se não encontrou, procura na unlabeled
-        if list_widget is None:
-            for i in range(self.list_unlabeled.count()):
-                if self.list_unlabeled.item(i).text() == self.CurrentImg:
-                    list_widget = self.list_unlabeled
-                    current_item = i
-                    break
-        if list_widget is None:
-            # Fallback
-            self.show_first_image()
-            return
-        # Avança para o próximo item da mesma lista
-        next_index = current_item + 1
-        if next_index < list_widget.count():
-            # Ainda tem itens na mesma lista
-            list_widget.setCurrentRow(next_index)
-            self.on_list_item_clicked(list_widget.item(next_index))
-        else:
-            # Fim da lista atual → vai para a outra lista (se tiver itens)
-            if list_widget == self.list_labeled and self.list_unlabeled.count() > 0:
-                self.list_unlabeled.setCurrentRow(0)
-                self.on_list_item_clicked(self.list_unlabeled.item(0))
-            elif list_widget == self.list_unlabeled and self.list_labeled.count() > 0:
+
+        # ==========================
+        # CASO 1:
+        # Item saiu da unlabeled
+        # ==========================
+        if came_from_unlabeled:
+
+            # Mantém mesma posição visual
+            if current_row < self.list_unlabeled.count():
+
+                self.list_unlabeled.setCurrentRow(current_row)
+
+                item = self.list_unlabeled.item(current_row)
+
+                self.on_list_item_clicked(
+                    item,
+                    self.list_unlabeled
+                )
+
+            elif self.list_unlabeled.count() > 0:
+
+                # Se era último item
+                last = self.list_unlabeled.count() - 1
+
+                self.list_unlabeled.setCurrentRow(last)
+
+                item = self.list_unlabeled.item(last)
+
+                self.on_list_item_clicked(
+                    item,
+                    self.list_unlabeled
+                )
+
+            elif self.list_labeled.count() > 0:
+
+                # Sem unlabeled restantes
                 self.list_labeled.setCurrentRow(0)
-                self.on_list_item_clicked(self.list_labeled.item(0))
-            else:
-                # Não tem mais imagens
-                self.CurrentImg = None
-                self.statusBar().showMessage("All images processed!", 4000)
+
+                item = self.list_labeled.item(0)
+
+                self.on_list_item_clicked(
+                    item,
+                    self.list_labeled
+                )
+
+        # ==========================
+        # CASO 2:
+        # Veio da labeled
+        # ==========================
+        else:
+
+            next_row = current_row + 1
+
+            if next_row < self.list_labeled.count():
+
+                self.list_labeled.setCurrentRow(next_row)
+
+                item = self.list_labeled.item(next_row)
+
+                self.on_list_item_clicked(
+                    item,
+                    self.list_labeled
+                )
+
+            elif self.list_labeled.count() > 0:
+
+                # Continua no último
+                last = self.list_labeled.count() - 1
+
+                self.list_labeled.setCurrentRow(last)
+
+                item = self.list_labeled.item(last)
+
+                self.on_list_item_clicked(
+                    item,
+                    self.list_labeled
+                )
+
+        # Atualiza progresso
+        classified_count = sum(
+            1 for v in self.Map.values()
+            if v.strip()
+        )
+
+        self.progressBar.setValue(classified_count)
+
+
     def show_first_image(self):
-        """Mostra a primeira imagem disponível (prioridade para unlabeled)"""
+        """Mostra a primeira imagem disponível"""
+
         if self.list_unlabeled.count() > 0:
+
             self.list_unlabeled.setCurrentRow(0)
-            self.on_list_item_clicked(self.list_unlabeled.item(0))
+
+            item = self.list_unlabeled.item(0)
+
+            self.on_list_item_clicked(
+                item,
+                self.list_unlabeled
+            )
+
         elif self.list_labeled.count() > 0:
+
             self.list_labeled.setCurrentRow(0)
-            self.on_list_item_clicked(self.list_labeled.item(0))
+
+            item = self.list_labeled.item(0)
+
+            self.on_list_item_clicked(
+                item,
+                self.list_labeled
+            )
+
     def save_csv(self):
         if not self.Map:
             QMessageBox.warning(self, "Warning", "No data loaded!")
