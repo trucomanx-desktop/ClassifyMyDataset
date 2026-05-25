@@ -25,7 +25,7 @@ classify-my-dataset
 
 Later:
 
-* Use a [somename.classify.json](doc/CLASSIFY.JSON.md) file in the following format to categorize "Happy" and "Sad":
+* Use a `*.classify.json` file (ex:`somename.classify.json`) in the following [format](doc/CLASSIFY.JSON.md) to categorize "Happy" and "Sad":
 
 ```
 [
