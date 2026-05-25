@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 from collections import OrderedDict
 import re
+import pandas as pd
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
@@ -37,6 +38,9 @@ CONFIG_PATH = os.path.join( os.path.expanduser("~"),
 DEFAULT_CONTENT={
     "toolbar_save": "Save",
     "toolbar_save_tooltip": "Save the CSV file with the current data",
+    "toolbar_save_shortcut": "Ctrl+S",
+    "toolbar_prepare": "Prepare CSV",
+    "toolbar_prepare_tooltip": "Open CSV generator",
     "toolbar_configure": "Configure",
     "toolbar_configure_tooltip": "Open the configure Json file of program GUI",
     "toolbar_about": "About",
@@ -64,6 +68,27 @@ DEFAULT_CONTENT={
     "json_label": "Config JSON:",
     "start_button": "Start",
     "start_button_tooltip": "Load dataset and start the classification process",
+    "listview_without_label": "Without Label",
+    "listview_with_label": "With Label",
+    "label_current_category": "Current Category:",
+    "progressbar_classified": "Classified: %v / %m",
+    "dialog_root_dir": "Select Root Directory",
+    "dialog_csv_path": "Select CSV File",
+    "dialog_json_path": "Select Config JSON",
+    "error": "Error",
+    "error_valid_csv": "Please select a valid CSV file!",
+    "error_valid_json": "Please select a valid Config JSON file!",
+    "error_valid_root": "Please select Root Directory!",
+    "error_load_json": "Failed to load JSON config:",
+    "error_load_csv": "Failed to read CSV:",
+    "staturbar_image": "Image:",
+    "warning": "Warning",
+    "warning_load_csv": "No data loaded!",
+    "dialog_save_csv": "Save CSV",
+    "exit": "Exit",
+    "success": "Success",
+    "success_csv": "CSV saved successfully!",
+    "exit_program": "Close the program?",
 }
 
 configure.verify_default_config(CONFIG_PATH,default_content=DEFAULT_CONTENT)
@@ -99,6 +124,9 @@ class MainWindow(QMainWindow):
         self.CurrentImg = None
         self.CurrentList = None
         self.scene = None
+        self.filepath_csv="filepath"
+        self.label_csv="label"
+        self.separator_csv=","
 
         self._create_toolbar()
         self.setup_ui()
@@ -111,21 +139,20 @@ class MainWindow(QMainWindow):
         self.action_save = QAction( QIcon(resource_path("icons","download.svg")),
                                     CONFIG["toolbar_save"], 
                                     self)
-        self.action_save.setShortcut("Ctrl+S")
+        self.action_save.setShortcut(CONFIG["toolbar_save_shortcut"])
         self.action_save.setToolTip(CONFIG["toolbar_save_tooltip"])
         self.action_save.triggered.connect(self.save_csv)
         self.toolbar.addAction(self.action_save)
 
-        #
+        # Prepare
         self.action_prepare_csv = QAction(
             QIcon(resource_path( "icons", "prepare-classification-dataset.svg" )),
-            "Prepare CSV",
+            CONFIG["toolbar_prepare"],
             self
         )
-        self.action_prepare_csv.setToolTip( "Open CSV generator" )
+        self.action_prepare_csv.setToolTip(CONFIG["toolbar_prepare_tooltip"])
         self.action_prepare_csv.triggered.connect( self.open_prepare_csv_window )
         self.toolbar.addAction( self.action_prepare_csv )
-
 
         # Adicionar o espaçador
         self.toolbar_spacer = QWidget()
@@ -259,9 +286,9 @@ class MainWindow(QMainWindow):
         self.list_unlabeled = QListWidget()
         self.list_labeled = QListWidget()
 
-        lbl_un = QLabel("Without Label")
+        lbl_un = QLabel(CONFIG["listview_without_label"])
         lbl_un.setAlignment(Qt.AlignCenter)
-        lbl_la = QLabel("With Label")
+        lbl_la = QLabel(CONFIG["listview_with_label"])
         lbl_la.setAlignment(Qt.AlignCenter)
 
         left_panel.addWidget(lbl_un)
@@ -290,8 +317,8 @@ class MainWindow(QMainWindow):
         # ==================== CURRENT CATEGORY ====================
 
         category_layout = QHBoxLayout()
-
-        self.lbl_current_category = QLabel("Current Category:")
+        
+        self.lbl_current_category = QLabel(CONFIG["label_current_category"])
 
         self.line_current_category = QLineEdit()
         self.line_current_category.setReadOnly(True)
@@ -309,9 +336,9 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(category_layout)
 
         # ==================== PROGRESS BAR ====================
-
+        
         self.progressBar = QProgressBar()
-        self.progressBar.setFormat("Classified: %v / %m")
+        self.progressBar.setFormat(CONFIG["progressbar_classified"])
         main_layout.addWidget(self.progressBar)
 
         # =========================
@@ -386,17 +413,32 @@ class MainWindow(QMainWindow):
         
     # ====================== SELECTORS ======================
     def select_root_dir(self):
-        path = QFileDialog.getExistingDirectory(self, "Select Root Directory")
+        path = QFileDialog.getExistingDirectory(self, 
+                                                CONFIG["dialog_root_dir"])
         if path:
             self.line_dir.setText(path)
 
     def select_csv(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select CSV File", "", "CSV (*.csv)")
+        dir_path = self.line_dir.text()
+        if not os.path.exists(dir_path):
+            dir_path = ""
+        
+        path, _ = QFileDialog.getOpenFileName(  self, 
+                                                CONFIG["dialog_csv_path"], 
+                                                dir_path, 
+                                                "CSV (*.csv)")
         if path:
             self.line_csv.setText(path)
 
     def select_json(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select Config JSON", "", "JSON (*.classify.json)")
+        dir_path = self.line_dir.text()
+        if not os.path.exists(dir_path):
+            dir_path = ""
+        
+        path, _ = QFileDialog.getOpenFileName(  self, 
+                                                CONFIG["dialog_json_path"], 
+                                                dir_path, 
+                                                "JSON (*.classify.json)")
         if path:
             self.line_json.setText(path)
 
@@ -407,13 +449,13 @@ class MainWindow(QMainWindow):
         root_dir = self.line_dir.text().strip()
 
         if not csv_path or not os.path.exists(csv_path):
-            QMessageBox.warning(self, "Error", "Please select a valid CSV file!")
+            QMessageBox.warning(self, CONFIG["error"], CONFIG["error_valid_csv"])
             return
         if not json_path or not os.path.exists(json_path):
-            QMessageBox.warning(self, "Error", "Please select a valid Config JSON file!")
+            QMessageBox.warning(self, CONFIG["error"], CONFIG["error_valid_json"])
             return
         if not root_dir or not os.path.exists(root_dir):
-            QMessageBox.warning(self, "Error", "Please select Root Directory!")
+            QMessageBox.warning(self, CONFIG["error"], CONFIG["error_valid_root"])
             return
 
         self.Directory = QDir(root_dir)
@@ -557,18 +599,18 @@ class MainWindow(QMainWindow):
                 self.ButtonPtr.append(button)
 
         except Exception as e:
-
+            msg = CONFIG["error_load_json"]
             QMessageBox.critical(
                 self,
-                "Error",
-                f"Failed to load JSON config:\n{e}"
+                CONFIG["error"],
+                f"{msg}\n{e}"
             )
             
     def load_csv(self, csv_path):
         self.Map.clear()
         try:
-            import pandas as pd
-            df = pd.read_csv(csv_path, sep=",", dtype=str, keep_default_na=False)
+            
+            df = pd.read_csv(csv_path, sep=self.separator_csv, dtype=str, keep_default_na=False)
             df.columns = [col.strip() for col in df.columns]
             filepath_col = df.columns[0]
             label_col = df.columns[1] if len(df.columns) > 1 else "label"
@@ -578,7 +620,8 @@ class MainWindow(QMainWindow):
                 if fn:
                     self.Map[fn] = lbl
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to read CSV:\n{e}")
+            msg = CONFIG["error_load_csv"]
+            QMessageBox.critical(self, CONFIG["error"], f"{msg}\n{e}")
             
     def populate_lists(self):
         self.list_unlabeled.clear()
@@ -616,8 +659,9 @@ class MainWindow(QMainWindow):
         self.show_image(filename)
     
     def show_image(self, filename):
+        msg = CONFIG["staturbar_image"]
         full_path = self.Directory.filePath(filename)
-        self.statusBar().showMessage(f"Image: {filename}", 4000)
+        self.statusBar().showMessage(f"{msg} {filename}", 4000)
         if self.scene:
             self.scene.clear()
         else:
@@ -761,23 +805,28 @@ class MainWindow(QMainWindow):
 
     def save_csv(self):
         if not self.Map:
-            QMessageBox.warning(self, "Warning", "No data loaded!")
+            QMessageBox.warning(self, 
+                                CONFIG["warning"], 
+                                CONFIG["warning_load_csv"])
             return
         csv_path = self.line_csv.text().strip()
         if not csv_path:
-            csv_path, _ = QFileDialog.getSaveFileName(self, "Save CSV", "", "CSV (*.csv)")
+            csv_path, _ = QFileDialog.getSaveFileName(  self, 
+                                                        CONFIG["dialog_save_csv"], 
+                                                        "", 
+                                                        "CSV (*.csv)")
         if csv_path:
             try:
                 with open(csv_path, "w", encoding="utf-8", newline="") as f:
-                    f.write("filepath,label\n")
+                    f.write(f"{self.filepath_csv}{self.separator_csv}{self.label_csv}\n")
                     for fn, lbl in self.Map.items():
-                        f.write(f"{fn},{lbl}\n")
-                QMessageBox.information(self, "Success", "CSV saved successfully!")
+                        f.write(f"{fn}{self.separator_csv}{lbl}\n")
+                QMessageBox.information(self, CONFIG["success"], CONFIG["success_csv"] )
             except Exception as e:
-                QMessageBox.critical(self, "Error", str(e))
+                QMessageBox.critical(self, CONFIG["error"], str(e))
 
     def closeEvent(self, event):
-        reply = QMessageBox.question(self, "Exit", "Close the program?",
+        reply = QMessageBox.question(self, CONFIG["exit"], CONFIG["exit_program"],
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             event.accept()
@@ -788,6 +837,7 @@ class MainWindow(QMainWindow):
 def main():
     signal.signal(signal.SIGINT, signal.SIG_DFL)
        
+    icon_path = resource_path("icons", "logo.svg")
     '''
     extras="" # "MimeType=text/vnd.graphviz;"
     
@@ -795,7 +845,8 @@ def main():
     create_desktop_menu()
     create_desktop_file(os.path.join("~",".local","share","applications"), 
                         program_name=about.__program_classify__,
-                        extras=extras)
+                        extras=extras,
+                        icon_path=icon_path)
     
     for n in range(len(sys.argv)):
         if sys.argv[n] == "--autostart":
@@ -804,7 +855,8 @@ def main():
             create_desktop_file(os.path.join("~",".config","autostart"), 
                                 overwrite=True, 
                                 program_name=about.__program_classify__,
-                                extras=extras)
+                                extras=extras,
+                                icon_path=icon_path)
             return
         if sys.argv[n] == "--applications":
             create_desktop_directory(overwrite = True)
@@ -812,7 +864,8 @@ def main():
             create_desktop_file(os.path.join("~",".local","share","applications"), 
                                 overwrite=True, 
                                 program_name=about.__program_classify__,
-                                extras=extras)
+                                extras=extras,
+                                icon_path=icon_path)
             return
     '''
     
