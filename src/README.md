@@ -22,6 +22,19 @@ To start, use the command below:
 ```bash
 classify-my-dataset
 ```
+
+and use a [somename.classify.json](doc/CLASSIFY.JSON.md) file in the following format to categorize "Happy" and "Sad":
+
+    [
+        {
+            "button_label":"Happy",
+        },
+        {
+            "button_label":"Sad",
+        }
+    ]
+
+
 ## 2. More information
 
 If you want more information go to [doc](https://github.com/trucomanx-desktop/ClassifyMyDataset/blob/main/doc) directory.
