@@ -27,22 +27,25 @@ Later:
 
 * Use a [somename.classify.json](doc/CLASSIFY.JSON.md) file in the following format to categorize "Happy" and "Sad":
 
-    [
-        {
-            "button_label":"Happy",
-        },
-        {
-            "button_label":"Sad",
-        }
-    ]
+```
+[
+    {
+        "button_label":"Happy",
+    },
+    {
+        "button_label":"Sad",
+    }
+]
+```
 
 * Use a `*.csv` file (ex: `dataset.csv`)  in the following format:
-
-    filepath, label
-    relative/path/to/image1.png,
-    relative/path/to/image2.png,Happy
-    relative/path/to/image3.png,
-    relative/path/to/image4.png,
+```
+filepath, label
+relative/path/to/image1.png,
+relative/path/to/image2.png,Happy
+relative/path/to/image3.png,
+relative/path/to/image4.png,
+```
 
 
 ## 2. More information
