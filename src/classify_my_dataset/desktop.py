@@ -22,7 +22,7 @@ def create_desktop_file(desktop_path, overwrite=False, program_name=None, extras
         icon_path = resource_path('icons', 'logo.png')
 
     if program_name is None:
-        __program_name = about.__program_name__
+        __program_name = about.__program_classify__
     else:
         __program_name = program_name
 

@@ -422,7 +422,7 @@ def main():
     create_desktop_directory()    
     create_desktop_menu()
     create_desktop_file(os.path.join("~",".local","share","applications"), 
-                        program_name=about.__program_name__,
+                        program_name=about.__program_classify__,
                         extras=extras,
                         icon_path=icon_path)
     
@@ -432,7 +432,7 @@ def main():
             create_desktop_menu(overwrite = True)
             create_desktop_file(os.path.join("~",".config","autostart"), 
                                 overwrite=True, 
-                                program_name=about.__program_name__,
+                                program_name=about.__program_classify__,
                                 extras=extras,
                                 icon_path=icon_path)
             return
@@ -441,17 +441,16 @@ def main():
             create_desktop_menu(overwrite = True)
             create_desktop_file(os.path.join("~",".local","share","applications"), 
                                 overwrite=True, 
-                                program_name=about.__program_name__,
+                                program_name=about.__program_classify__,
                                 extras=extras,
                                 icon_path=icon_path)
             return
     '''
     
     default_dir = sys.argv[1] if len(sys.argv) > 1 else ""
-
     
     app = QApplication(sys.argv)
-    app.setApplicationName(about.__program_name__) 
+    app.setApplicationName(about.__program_classify__) 
     
     window = CSVGeneratorWindow(default_dir)
     window.show()

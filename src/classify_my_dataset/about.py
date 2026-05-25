@@ -2,7 +2,7 @@
 
 __version__ = "0.1.0"
 __package__ = "classify_my_dataset"
-__program_name__ = "classify-my-dataset"
+__program_classify__ = "classify-my-dataset"
 __program_prepare__ = "prepare-classification-dataset"
 __author__ = "Fernando Pujaico Rivera"
 __email__  = "fernando.pujaico.rivera@gmail.com"

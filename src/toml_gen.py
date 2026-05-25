@@ -9,7 +9,8 @@ sys.path.insert(0, str(here))
 from classify_my_dataset.about import (
     __version__,
     __package__,
-    __program_name__,
+    __program_classify__,
+    __program_prepare__,
     __author__,
     __email__,
     __description__,
@@ -54,7 +55,7 @@ dependencies = [
 "Source" = "{__url_source__}"
 
 [project.scripts]
-"{__program_name__}" = "{__package__}.program:main"
+"{__program_classify__}" = "{__package__}.program:main"
 
 [tool.setuptools]
 packages = ["{__package__}", "{__package__}.modules"]

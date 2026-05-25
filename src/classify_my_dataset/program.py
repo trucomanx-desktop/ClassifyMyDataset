@@ -22,6 +22,7 @@ from PyQt5.QtCore import Qt, QDir, QSize, QUrl
 import classify_my_dataset.about as about
 import classify_my_dataset.modules.configure as configure 
 from classify_my_dataset.modules.resources import resource_path
+from classify_my_dataset.program_prepare import CSVGeneratorWindow
 
 from classify_my_dataset.modules.wabout    import show_about_window
 from classify_my_dataset.desktop import create_desktop_file, create_desktop_directory, create_desktop_menu
@@ -31,7 +32,7 @@ from classify_my_dataset.desktop import create_desktop_file, create_desktop_dire
 CONFIG_PATH = os.path.join( os.path.expanduser("~"),
                             ".config", 
                             about.__package__, 
-                            f"config_{about.__program_name__}.json" )
+                            f"config_{about.__program_classify__}.json" )
 
 DEFAULT_CONTENT={
     "toolbar_save": "Save",
@@ -81,7 +82,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
-        self.setWindowTitle(about.__program_name__)
+        self.setWindowTitle(about.__program_classify__)
         self.resize(CONFIG["window_width"], CONFIG["window_height"])
         
         ## Icon
@@ -114,6 +115,28 @@ class MainWindow(QMainWindow):
         self.action_save.setToolTip(CONFIG["toolbar_save_tooltip"])
         self.action_save.triggered.connect(self.save_csv)
         self.toolbar.addAction(self.action_save)
+
+        #
+        self.action_prepare_csv = QAction(
+            QIcon(resource_path(
+                "icons",
+                "prepare-classification-dataset.svg"
+            )),
+            "Prepare CSV",
+            self
+        )
+
+        self.action_prepare_csv.setToolTip(
+            "Open CSV generator"
+        )
+
+        self.action_prepare_csv.triggered.connect(
+            self.open_prepare_csv_window
+        )
+
+        self.toolbar.addAction(
+            self.action_prepare_csv
+        )
 
 
         # Adicionar o espaçador
@@ -303,17 +326,22 @@ class MainWindow(QMainWindow):
         self.progressBar.setFormat("Classified: %v / %m")
         main_layout.addWidget(self.progressBar)
 
-        # Connections
-        self.list_unlabeled.itemClicked.connect(
-            lambda item: self.on_list_item_clicked(
-                item,
+        # =========================
+        # CONNECTIONS
+        # =========================
+
+        self.list_unlabeled.currentItemChanged.connect(
+            lambda current, previous:
+            self.on_list_item_clicked(
+                current,
                 self.list_unlabeled
             )
         )
 
-        self.list_labeled.itemClicked.connect(
-            lambda item: self.on_list_item_clicked(
-                item,
+        self.list_labeled.currentItemChanged.connect(
+            lambda current, previous:
+            self.on_list_item_clicked(
+                current,
                 self.list_labeled
             )
         )
@@ -343,7 +371,7 @@ class MainWindow(QMainWindow):
         data={
             "version": about.__version__,
             "package": about.__package__,
-            "program_name": about.__program_name__,
+            "program_name": about.__program_classify__,
             "author": about.__author__,
             "email": about.__email__,
             "description": about.__description__,
@@ -357,7 +385,17 @@ class MainWindow(QMainWindow):
     def on_coffee_action_click(self):
         QDesktopServices.openUrl(QUrl("https://ko-fi.com/trucomanx"))
 
+    # ====================== WINDOW ======================
+    def open_prepare_csv_window(self):
 
+        root_dir = self.line_dir.text().strip()
+
+        self.prepare_window = CSVGeneratorWindow(
+            default_dir=root_dir
+        )
+
+        self.prepare_window.show()
+        
     # ====================== SELECTORS ======================
     def select_root_dir(self):
         path = QFileDialog.getExistingDirectory(self, "Select Root Directory")
@@ -768,7 +806,7 @@ def main():
     create_desktop_directory()    
     create_desktop_menu()
     create_desktop_file(os.path.join("~",".local","share","applications"), 
-                        program_name=about.__program_name__,
+                        program_name=about.__program_classify__,
                         extras=extras)
     
     for n in range(len(sys.argv)):
@@ -777,7 +815,7 @@ def main():
             create_desktop_menu(overwrite = True)
             create_desktop_file(os.path.join("~",".config","autostart"), 
                                 overwrite=True, 
-                                program_name=about.__program_name__,
+                                program_name=about.__program_classify__,
                                 extras=extras)
             return
         if sys.argv[n] == "--applications":
@@ -785,13 +823,13 @@ def main():
             create_desktop_menu(overwrite = True)
             create_desktop_file(os.path.join("~",".local","share","applications"), 
                                 overwrite=True, 
-                                program_name=about.__program_name__,
+                                program_name=about.__program_classify__,
                                 extras=extras)
             return
     '''
     
     app = QApplication(sys.argv)
-    app.setApplicationName(about.__program_name__) 
+    app.setApplicationName(about.__program_classify__) 
     
     window = MainWindow()
     window.show()

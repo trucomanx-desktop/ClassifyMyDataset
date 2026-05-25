@@ -45,7 +45,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
-        self.setWindowTitle(about.__program_name__)
+        self.setWindowTitle(about.__program_classify__)
         self.resize(CONFIG["window_width"], CONFIG["window_height"])
         
         ## Icon
@@ -125,7 +125,7 @@ class MainWindow(QMainWindow):
         data={
             "version": about.__version__,
             "package": about.__package__,
-            "program_name": about.__program_name__,
+            "program_name": about.__program_classify__,
             "author": about.__author__,
             "email": about.__email__,
             "description": about.__description__,
@@ -148,7 +148,7 @@ def main():
     create_desktop_directory()    
     create_desktop_menu()
     create_desktop_file(os.path.join("~",".local","share","applications"), 
-                        program_name=about.__program_name__,
+                        program_name=about.__program_classify__,
                         extras=extras)
     
     for n in range(len(sys.argv)):
@@ -157,7 +157,7 @@ def main():
             create_desktop_menu(overwrite = True)
             create_desktop_file(os.path.join("~",".config","autostart"), 
                                 overwrite=True, 
-                                program_name=about.__program_name__,
+                                program_name=about.__program_classify__,
                                 extras=extras)
             return
         if sys.argv[n] == "--applications":
@@ -165,13 +165,13 @@ def main():
             create_desktop_menu(overwrite = True)
             create_desktop_file(os.path.join("~",".local","share","applications"), 
                                 overwrite=True, 
-                                program_name=about.__program_name__,
+                                program_name=about.__program_classify__,
                                 extras=extras)
             return
     '''
     
     app = QApplication(sys.argv)
-    app.setApplicationName(about.__program_name__) 
+    app.setApplicationName(about.__program_classify__) 
     
     window = MainWindow()
     window.show()
