@@ -416,7 +416,7 @@ def main():
     signal.signal(signal.SIGINT, signal.SIG_DFL)
        
     icon_path = resource_path("icons", "prepare-classification-dataset.svg")
-    '''
+    
     extras="" # "MimeType=text/vnd.graphviz;"
     
     create_desktop_directory()    
@@ -445,7 +445,6 @@ def main():
                                 extras=extras,
                                 icon_path=icon_path)
             return
-    '''
     
     default_dir = sys.argv[1] if len(sys.argv) > 1 else ""
     

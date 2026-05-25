@@ -907,7 +907,7 @@ def main():
     signal.signal(signal.SIGINT, signal.SIG_DFL)
        
     icon_path = resource_path("icons", "logo.svg")
-    '''
+
     extras="" # "MimeType=text/vnd.graphviz;"
     
     create_desktop_directory()    
@@ -936,7 +936,6 @@ def main():
                                 extras=extras,
                                 icon_path=icon_path)
             return
-    '''
     
     app = QApplication(sys.argv)
     app.setApplicationName(about.__program_classify__) 
