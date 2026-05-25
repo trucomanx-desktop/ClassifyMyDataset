@@ -57,6 +57,7 @@ dependencies = [
 
 [project.scripts]
 "{__program_classify__}" = "{__package__}.program:main"
+"{__program_prepare__}" = "{__package__}.program_prepare:main"
 
 [tool.setuptools]
 packages = ["{__package__}", "{__package__}.modules"]
